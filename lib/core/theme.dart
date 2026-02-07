@@ -8,11 +8,14 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.backgroundLight,
+      scaffoldBackgroundColor: AppColors.backgroundAlt, // Light blue-grey background
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
+        primary: AppColors.primary,
+        secondary: AppColors.accent,
+        background: AppColors.backgroundAlt,
+        surface: Colors.white,
         brightness: Brightness.light,
-        background: AppColors.backgroundLight,
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).apply(
         bodyColor: AppColors.textLight,
@@ -20,12 +23,30 @@ class AppTheme {
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: AppColors.textLight),
+        iconTheme: IconThemeData(color: AppColors.primary),
         titleTextStyle: TextStyle(
-          color: AppColors.textLight,
+          color: AppColors.primary, // Brand Blue for title
           fontSize: 20,
           fontWeight: FontWeight.bold,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        ),
+      ),
+      cardTheme: CardThemeData(
+        color: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AppColors.grey),
         ),
       ),
     );

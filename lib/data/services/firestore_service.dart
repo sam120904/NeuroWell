@@ -47,7 +47,6 @@ class FirestoreService {
   Stream<QuerySnapshot> getPatientsStream() {
     return patientsCollection
         .where('clinicianId', isEqualTo: currentUserId)
-        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 
@@ -103,6 +102,24 @@ class FirestoreService {
         .doc(sessionId)
         .collection('biosensorData')
         .orderBy('timestamp', descending: false)
+        .snapshots();
+  }
+
+  // Add patient note
+  Future<void> addPatientNote(String patientId, String content) async {
+    await patientsCollection.doc(patientId).collection('notes').add({
+      'content': content,
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdBy': currentUserId,
+    });
+  }
+
+  // Get notes stream for patient
+  Stream<QuerySnapshot> getPatientNotesStream(String patientId) {
+    return patientsCollection
+        .doc(patientId)
+        .collection('notes')
+        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 }
