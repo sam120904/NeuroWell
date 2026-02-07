@@ -52,8 +52,8 @@ class BlynkService {
     // Initial fetch
     _fetchStatus();
     
-    // Poll every 1 second
-    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+    // Poll every 3 seconds to avoid rate limiting (Blynk/CORS)
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _fetchStatus();
     });
   }
