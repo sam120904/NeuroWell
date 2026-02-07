@@ -176,7 +176,7 @@ class HeroSection extends StatelessWidget {
           border: Border.all(color: Colors.white, width: 2),
           image: const DecorationImage(
              // Using a generic placeholder image since I can't access assets
-             image: NetworkImage('https://i.pravatar.cc/100'), 
+             image: NetworkImage('https://placehold.co/100'), 
              fit: BoxFit.cover,
           ),
         ),

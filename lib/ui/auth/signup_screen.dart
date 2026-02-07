@@ -89,6 +89,8 @@ class _SignupScreenState extends State<SignupScreen> {
       return 'Please enter a valid email address.';
     } else if (error.contains('network-request-failed')) {
       return 'Network error. Please check your connection.';
+    } else if (error.contains('configuration-not-found')) {
+      return 'Auth configuration error. Please check console logs.';
     }
     return 'Sign up failed. Please try again.';
   }

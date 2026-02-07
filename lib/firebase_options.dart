@@ -40,11 +40,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyCm4Y_wdSLApTxwHncW4Ate30B1ZtfZztU',
-    appId: '1:591423985812:web:cfb1e89bbe6afc9c41bc81',
-    messagingSenderId: '591423985812',
-    projectId: 'hyperspace-flutter-nw',
     authDomain: 'hyperspace-flutter-nw.firebaseapp.com',
+    projectId: 'hyperspace-flutter-nw',
     storageBucket: 'hyperspace-flutter-nw.firebasestorage.app',
+    messagingSenderId: '591423985812',
+    appId: '1:591423985812:web:cfb1e89bbe6afc9c41bc81',
     measurementId: 'G-P28M5XMKKV',
   );
 

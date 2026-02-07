@@ -67,6 +67,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Too many attempts. Please try again later.';
     } else if (error.contains('network-request-failed')) {
       return 'Network error. Please check your connection.';
+    } else if (error.contains('configuration-not-found')) {
+      return 'Auth configuration error. Please check console logs.';
     }
     return 'Sign in failed. Please try again.';
   }

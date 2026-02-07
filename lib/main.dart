@@ -8,6 +8,7 @@ import 'ui/auth/login_screen.dart';
 import 'ui/dashboard/dashboard_layout.dart';
 import 'firebase_options.dart';
 import 'data/services/auth_service.dart';
+import 'data/services/gemini_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,9 +18,13 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('Firebase initialized successfully');
+    debugPrint('Firebase initialized successfully with options: ${DefaultFirebaseOptions.currentPlatform.asMap}');
   } catch (e) {
     debugPrint('Firebase initialization failed: $e');
+    if (e is FirebaseException) {
+      debugPrint('Firebase Exception Code: ${e.code}');
+      debugPrint('Firebase Exception Message: ${e.message}');
+    }
   }
   
   runApp(const NeurowellApp());
