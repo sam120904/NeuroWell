@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 class GeminiService {
   // TODO: Replace with your actual API key
   // Recommended: Use --dart-define=GEMINI_API_KEY=... at build time
-  static const String _apiKey = 'YOUR_API_KEY_HERE';
+  static const String _apiKey = 'AIzaSyB_e38TcWai7Idql_uckwIF91jyqMU5T2Y';
   
   late final GenerativeModel _model;
 
