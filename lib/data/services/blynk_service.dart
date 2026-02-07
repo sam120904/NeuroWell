@@ -13,7 +13,7 @@ class BlynkService {
   final _statusController = StreamController<BlynkStatus>.broadcast();
   final _logController = StreamController<String>.broadcast(); // Debug log stream
   Timer? _pollTimer;
-  BlynkStatus _lastStatus = BlynkStatus.offline;
+  BlynkStatus _lastStatus = BlynkStatus.loading;
 
   /// Stream of Blynk connection status
   Stream<BlynkStatus> get statusStream => _statusController.stream;
@@ -46,8 +46,8 @@ class BlynkService {
       print('[BlynkService] Starting polling with token: ${_authToken.isNotEmpty ? "***${_authToken.substring(_authToken.length - 4)}" : "EMPTY"}');
     }
     
-    // Emit initial offline status
-    _statusController.add(BlynkStatus.offline);
+    // Emit initial loading status
+    _statusController.add(BlynkStatus.loading);
     
     // Initial fetch
     _fetchStatus();
@@ -81,25 +81,19 @@ class BlynkService {
     }
   }
 
-  /// Get D0 dummy data button status
-  /// Found that user is using Digital Pin D0 (not Virtual Pin V0/V1)
-  Future<bool> _isDummyDataEnabled() async {
+  /// Get V1 (Stress Mode) status
+  Future<bool> _isStressModeEnabled() async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final url = Uri.parse('$_baseUrl/get?token=$_authToken&pin=D0&_t=$timestamp');
-      _log('Checking D0: $url');
-
+      final url = Uri.parse('$_baseUrl/get?token=$_authToken&pin=D1&_t=$timestamp');
+      
       final response = await http.get(
         url,
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 5));
 
-      _log('D0 status: ${response.statusCode} - ${response.body}');
-
       if (response.statusCode == 200) {
         final body = response.body.trim();
-        // Blynk returns "1" or "0" for digital pins usually, or ["1"]
-        // Handle json list if needed
         if (body.startsWith('[') && body.endsWith(']')) {
            return body.contains('1') || body.contains('true');
         }
@@ -107,7 +101,32 @@ class BlynkService {
       }
       return false;
     } catch (e) {
-      _log('Exception checking D0: $e');
+      if (kDebugMode) print('Exception checking V1: $e');
+      return false;
+    }
+  }
+
+  /// Get V0 dummy data button status
+  Future<bool> _isDummyDataEnabled() async {
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final url = Uri.parse('$_baseUrl/get?token=$_authToken&pin=D0&_t=$timestamp');
+
+      final response = await http.get(
+        url,
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final body = response.body.trim();
+        if (body.startsWith('[') && body.endsWith(']')) {
+           return body.contains('1') || body.contains('true');
+        }
+        return body == '1' || body == 'true' || body == '"1"';
+      }
+      return false;
+    } catch (e) {
+      if (kDebugMode) print('Exception checking D0: $e');
       return false;
     }
   }
@@ -115,36 +134,44 @@ class BlynkService {
   /// Fetch complete status
   Future<void> _fetchStatus() async {
     if (_authToken.isEmpty) {
-      _log('No Auth Token found');
       _updateStatus(BlynkStatus.offline);
       return;
     }
 
-    _log('Polling status...');
-
-    // NEW LOGIC: Check V0 (Dummy Data) FIRST to allow simulation even if offline
-    final isDummyOn = await _isDummyDataEnabled();
+    // 1. Check Hardware Connection FIRST
+    // User Requirement: "when device is offline show it as offline"
+    final isHardwareOnline = await _isHardwareConnected();
     
-    if (isDummyOn) {
-      _updateStatus(BlynkStatus.onlineWithData);
+    if (!isHardwareOnline) {
+      _updateStatus(BlynkStatus.offline);
+      return;
+    }
+
+    // Device is ONLINE. Now check simulation pins (D1/D0)
+    // User Requirement: "when device is ON and D1 is ON..."
+
+    // 2. Check Stress Mode (D1)
+    final isStress = await _isStressModeEnabled();
+    if (isStress) {
+      _updateStatus(BlynkStatus.simulationStress);
+      return;
+    }
+
+    // 3. Check Normal Simulation (D0)
+    final isNormal = await _isDummyDataEnabled();
+    if (isNormal) {
+      _updateStatus(BlynkStatus.simulationNormal);
       return; 
     }
 
-    // If Dummy is OFF, checking actual hardware status
-    final isHardwareOnline = await _isHardwareConnected();
-    
-    if (isHardwareOnline) {
-      _updateStatus(BlynkStatus.onlineNoData);
-    } else {
-      _updateStatus(BlynkStatus.offline);
-    }
+    // 4. Device Online but D0/D1 OFF
+    _updateStatus(BlynkStatus.onlineNoData);
   }
 
   void _updateStatus(BlynkStatus newStatus) {
     if (_lastStatus != newStatus) {
       _lastStatus = newStatus;
       _statusController.add(newStatus);
-      _log('Status changed to: $newStatus');
     }
   }
 
@@ -166,6 +193,10 @@ enum BlynkStatus {
   offline,
   /// Hardware is online but dummy data is OFF (show zeros)
   onlineNoData,
-  /// Hardware is online and dummy data is ON (show continuous data)
-  onlineWithData,
+  /// Simulation: Normal Data (D0 ON, 60-100 BPM)
+  simulationNormal,
+  /// Simulation: Stress Data (D1 ON, 100-140 BPM)
+  simulationStress,
+  /// Initial connecting state
+  loading,
 }

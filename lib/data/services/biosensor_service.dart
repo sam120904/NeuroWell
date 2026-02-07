@@ -45,19 +45,19 @@ class BiosensorService {
           _controller.add(null);
           break;
           
-        case BlynkStatus.onlineNoData:
-          // Device online but dummy OFF - emit zeros (no hand on sensor)
+        case BlynkStatus.loading:
+          // Just wait, maybe emit null or handle in UI
           _stopDataGeneration();
-          _controller.add(BiosensorData(
-            timestamp: DateTime.now(),
-            heartRate: 0,
-            spo2: 0,
-            gsr: 0.0,
-            ecgData: List.filled(100, 0.0),
-          ));
+          _controller.add(null);
+          break;
+
+        case BlynkStatus.onlineNoData:
+          // Device online but dummy OFF - emit zeros continuously
+          _startZeroDataGeneration();
           break;
           
-        case BlynkStatus.onlineWithData:
+        case BlynkStatus.simulationNormal:
+        case BlynkStatus.simulationStress:
           // Device online and dummy ON - generate continuous data
           _startDataGeneration();
           break;
@@ -69,12 +69,35 @@ class BiosensorService {
     _dataTimer?.cancel();
     // Generate data every 1 second
     _dataTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_currentStatus == BlynkStatus.onlineWithData) {
+      if (_currentStatus == BlynkStatus.simulationNormal || 
+          _currentStatus == BlynkStatus.simulationStress) {
         _generateAndEmitData();
       }
     });
     // Emit immediately
     _generateAndEmitData();
+  }
+
+  void _startZeroDataGeneration() {
+    _dataTimer?.cancel();
+    // Generate 0 data every 1 second
+    _dataTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+       _controller.add(BiosensorData(
+          timestamp: DateTime.now(),
+          heartRate: 0,
+          spo2: 0,
+          gsr: 0.0,
+          ecgData: List.filled(100, 0.0),
+       ));
+    });
+    // Emit immediately
+    _controller.add(BiosensorData(
+        timestamp: DateTime.now(),
+        heartRate: 0,
+        spo2: 0,
+        gsr: 0.0,
+        ecgData: List.filled(100, 0.0),
+    )); 
   }
 
   void _stopDataGeneration() {
@@ -83,12 +106,32 @@ class BiosensorService {
   }
 
   void _generateAndEmitData() {
+    double minHr = 60.0;
+    double maxHr = 100.0;
+    double minSpo2 = 95.0;
+    double maxSpo2 = 100.0;
+
+    // Adjust ranges for Stress Mode
+    if (_currentStatus == BlynkStatus.simulationStress) {
+      minHr = 110.0; // Increased base
+      maxHr = 150.0; // Increased peak
+      minSpo2 = 88.0; // Lowered for higher stress score
+      maxSpo2 = 94.0;
+    }
+
     // Normal ranges: HR 60-100, SpO2 95-100
+    // Stress ranges: HR 100-140, SpO2 93-97
+    
     _hrBase += (_random.nextDouble() - 0.5) * 5;
-    _hrBase = _hrBase.clamp(60.0, 100.0);
+    
+    // If current base is outside target range, pull it back faster
+    if (_hrBase < minHr) _hrBase += 2;
+    if (_hrBase > maxHr) _hrBase -= 2;
+    
+    _hrBase = _hrBase.clamp(minHr, maxHr);
     
     _spo2Base += (_random.nextDouble() - 0.5) * 0.5;
-    _spo2Base = _spo2Base.clamp(95.0, 100.0);
+    _spo2Base = _spo2Base.clamp(minSpo2, maxSpo2);
     
     _gsrBase += (_random.nextDouble() - 0.5) * 0.4;
     _gsrBase = _gsrBase.clamp(0.5, 4.0);

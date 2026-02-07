@@ -4,6 +4,7 @@ import '../../core/constants.dart';
 import 'widgets/telemetry_card.dart';
 import 'widgets/telemetry_chart.dart';
 import '../../data/services/biosensor_service.dart';
+import '../../data/services/blynk_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/models/biosensor_data_model.dart';
@@ -18,7 +19,6 @@ class LiveMonitoringView extends StatefulWidget {
 class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   final BiosensorService _service = BiosensorService();
   final TextEditingController _notesController = TextEditingController();
-  final List<String> _logs = [];
   String? _aiInsight;
   bool _isGeneratingInsight = false;
   bool _isSessionActive = false;
@@ -26,15 +26,6 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   @override
   void initState() {
     super.initState();
-    // Subscribe to logs
-    _service.logStream.listen((log) {
-      if (mounted) {
-        setState(() {
-          _logs.insert(0, log);
-          if (_logs.length > 50) _logs.removeLast();
-        });
-      }
-    });
   }
 
   @override
@@ -48,7 +39,6 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     setState(() {
       _isSessionActive = !_isSessionActive;
       if (_isSessionActive) {
-        _logs.clear(); // Clear logs on new session
         _service.startSimulation();
       } else {
         _service.stopSimulation();
@@ -95,99 +85,90 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       );
     }
 
-    return StreamBuilder<BiosensorData?>(
-      stream: _service.dataStream,
-      builder: (context, snapshot) {
-        final data = snapshot.data;
-        final isConnected = data != null;
-        
-        final hr = data?.heartRate.toString() ?? '--';
-        final spo2 = data?.spo2.toString() ?? '--';
-        final gsr = data?.gsr.toStringAsFixed(1) ?? '--';
-        final isStressed = data?.isStressed ?? false;
+    return StreamBuilder<BlynkStatus>(
+      stream: _service.statusStream,
+      initialData: _service.currentStatus,
+      builder: (context, statusSnapshot) {
+        final status = statusSnapshot.data ?? BlynkStatus.offline;
 
-        return Padding(
-          padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
-          child: Column(
-            children: [
-              _buildHeader(context, isConnected),
-              const SizedBox(height: 16),
-              if (!isConnected)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.sensors_off, color: Colors.red[700], size: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Hardware Offline',
-                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.red[700]),
-                            ),
-                            Text(
-                              'ESP32 disconnected. Check debug logs below.',
-                              style: GoogleFonts.inter(fontSize: 12, color: Colors.red[600]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              
-              Expanded(
-                child: isDesktop 
-                    ? _buildDesktopContent(context, isConnected, hr, spo2, gsr, isStressed)
-                    : _buildTabletMobileContent(context, isConnected, hr, spo2, gsr, isStressed, isTablet),
-              ),
-              
-              const SizedBox(height: 16),
-              // Debug Console
-              Container(
-                height: 150,
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+        return StreamBuilder<BiosensorData?>(
+          stream: _service.dataStream,
+          builder: (context, snapshot) {
+            final data = snapshot.data;
+            // If loading, show loader
+            if (status == BlynkStatus.loading) {
+              return Center(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('CONNECTION LOGS', style: GoogleFonts.robotoMono(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold)),
-                        Text('Auto-scroll', style: GoogleFonts.robotoMono(fontSize: 10, color: Colors.grey)),
-                      ],
-                    ),
-                    const Divider(color: Colors.white24, height: 16),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: _logs.length,
-                        itemBuilder: (context, index) {
-                          return Text(
-                            _logs[index],
-                            style: GoogleFonts.robotoMono(fontSize: 11, color: Colors.white70),
-                          );
-                        },
-                      ),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Connecting to device...',
+                      style: GoogleFonts.inter(fontSize: 16, color: Colors.grey[600]),
                     ),
                   ],
                 ),
+              );
+            }
+
+            final isConnected = status != BlynkStatus.offline;
+            
+            final hr = data?.heartRate.toString() ?? '--';
+            final spo2 = data?.spo2.toString() ?? '--';
+            final gsr = data?.gsr.toStringAsFixed(1) ?? '--';
+            final isStressed = data?.isStressed ?? false;
+
+            return Padding(
+              padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
+              child: Column(
+                children: [
+                  _buildHeader(context, isConnected),
+                  const SizedBox(height: 16),
+                  if (!isConnected)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.sensors_off, color: Colors.red[700], size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Hardware Offline',
+                                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.red[700]),
+                                ),
+                                Text(
+                                  'ESP32 disconnected. Check debug logs below.',
+                                  style: GoogleFonts.inter(fontSize: 12, color: Colors.red[600]),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  Expanded(
+                    child: isDesktop 
+                        ? _buildDesktopContent(context, isConnected, hr, spo2, gsr, isStressed)
+                        : _buildTabletMobileContent(context, isConnected, hr, spo2, gsr, isStressed, isTablet),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                ],
               ),
-            ],
-          ),
+            );
+          }
         );
       }
     );
@@ -323,19 +304,17 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                   ],
                 ),
                 const SizedBox(width: 24),
-                // Legend
-                Row(
-                  children: [
-                    _legendItem('Heart Rate', Colors.redAccent),
-                    const SizedBox(width: 16),
-                    _legendItem('HRV', Colors.amber),
-                  ],
-                ),
+                  // Legend
+                  Row(
+                    children: [
+                      _legendItem('ECG', Colors.redAccent),
+                    ],
+                  ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          const Expanded(child: TelemetryChart()),
+          Expanded(child: TelemetryChart(dataStream: _service.dataStream)),
         ],
       ),
     );
@@ -490,13 +469,23 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                   double score = 0.0;
                   if (snapshot.hasData && snapshot.data != null) {
                      final data = snapshot.data!;
-                     // Normalize HR: 60=0, 140=10
-                     double hrScore = ((data.heartRate - 60) / 80) * 10;
-                     // Normalize SpO2: 100=0, 90=10 (inverted)
-                     double spo2Score = ((100 - data.spo2) / 10) * 10;
-                     // Combined score
-                     score = (hrScore + spo2Score) / 2;
-                     score = score.clamp(0.0, 10.0);
+                     
+                     // ZERO CHECK: If sensors are 0, stress is 0
+                     if (data.heartRate == 0 && data.spo2 == 0) {
+                       score = 0.0;
+                     } else {
+                       // Normalize HR: 60=0, 140=10 (Ensure non-negative)
+                       double hrScore = ((data.heartRate - 60) / 80) * 10;
+                       if (hrScore < 0) hrScore = 0;
+                       
+                       // Normalize SpO2: 100=0, 90=10 (inverted)
+                       double spo2Score = ((100 - data.spo2) / 10) * 10;
+                       if (spo2Score < 0) spo2Score = 0;
+                       
+                       // Combined score
+                       score = (hrScore + spo2Score) / 2;
+                       score = score.clamp(0.0, 10.0);
+                     }
                   } else {
                     return Text('--', style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w900, color: Colors.grey[400]));
                   }

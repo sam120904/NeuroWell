@@ -2,8 +2,55 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants.dart';
 
-class TelemetryChart extends StatelessWidget {
-  const TelemetryChart({super.key});
+import 'dart:async';
+import '../../../data/models/biosensor_data_model.dart';
+
+class TelemetryChart extends StatefulWidget {
+  final Stream<BiosensorData?> dataStream;
+
+  const TelemetryChart({super.key, required this.dataStream});
+
+  @override
+  State<TelemetryChart> createState() => _TelemetryChartState();
+}
+
+class _TelemetryChartState extends State<TelemetryChart> {
+  final List<FlSpot> _scanLine = [];
+  StreamSubscription? _subscription;
+  double _xValue = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscription = widget.dataStream.listen((data) {
+      if (data != null && data.ecgData.isNotEmpty) {
+        _updateData(data.ecgData);
+      }
+    });
+  }
+
+  void _updateData(List<double> newPoints) {
+    if (!mounted) return;
+    
+    // Add new points
+    for (var point in newPoints) {
+      _scanLine.add(FlSpot(_xValue, point));
+      _xValue += 0.01; // Scale time
+    }
+
+    // Keep last 300 points (approx 3 seconds window)
+    if (_scanLine.length > 300) {
+      _scanLine.removeRange(0, _scanLine.length - 300);
+    }
+    
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,87 +72,35 @@ class TelemetryChart extends StatelessWidget {
             );
           },
         ),
-        titlesData: FlTitlesData(
+        titlesData: const FlTitlesData(
           show: true,
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: 1,
-              getTitlesWidget: (value, meta) {
-                return SideTitleWidget(
-                  // axisSide: meta.axisSide, 
-                  meta: meta,
-                  child: Text(
-                    '${value.toInt()}s',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), // Hide time for waveform
+          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(
           show: true,
           border: Border.all(color: Colors.grey.withOpacity(0.1)),
         ),
-        minX: 0,
-        maxX: 10,
-        minY: 0,
-        maxY: 6,
+        // Dynamic X window based on data
+        minX: _scanLine.isNotEmpty ? _scanLine.first.x : 0,
+        maxX: _scanLine.isNotEmpty ? _scanLine.last.x : 10,
+        minY: -2,
+        maxY: 2,
         lineBarsData: [
-          // Placeholder Data Line 1 (Heart Rate)
+          // ECG Waveform
           LineChartBarData(
-            spots: const [
-              FlSpot(0, 3),
-              FlSpot(1, 1),
-              FlSpot(2, 4),
-              FlSpot(3, 3),
-              FlSpot(4, 5),
-              FlSpot(5, 3),
-              FlSpot(6, 4),
-              FlSpot(7, 3),
-              FlSpot(8, 2),
-              FlSpot(9, 5),
-              FlSpot(10, 3),
-            ],
+            spots: _scanLine.isEmpty ? [const FlSpot(0, 0)] : _scanLine,
             isCurved: true,
             color: Colors.redAccent,
-            barWidth: 3,
+            barWidth: 2,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.redAccent.withOpacity(0.1),
+              color: Colors.redAccent.withOpacity(0.05),
             ),
-          ),
-          // Placeholder Data Line 2 (HRV)
-          LineChartBarData(
-            spots: const [
-              FlSpot(0, 2),
-              FlSpot(1, 3),
-              FlSpot(2, 2.5),
-              FlSpot(3, 2.8),
-              FlSpot(4, 2.2),
-              FlSpot(5, 2.9),
-              FlSpot(6, 2.5),
-              FlSpot(7, 3.1),
-              FlSpot(8, 2.7),
-              FlSpot(9, 2.4),
-              FlSpot(10, 2),
-            ],
-            isCurved: true,
-            color: Colors.amber,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(show: false),
           ),
         ],
       ),
