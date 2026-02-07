@@ -62,7 +62,7 @@ class StatsSection extends StatelessWidget {
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: AppColors.grey,
+            color: AppColors.textDim, // Darker grey for readability
             letterSpacing: 0.5,
           ),
         ),

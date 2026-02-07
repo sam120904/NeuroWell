@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'widgets/dashboard_sidebar.dart';
 import 'widgets/dashboard_header.dart';
@@ -81,7 +82,10 @@ class _DashboardLayoutState extends State<DashboardLayout> {
       case '/live': return 'Real-time biofeedback stream & AI analysis';
       case '/patients': return 'Manage your patient roster';
       case '/history': return 'Review past sessions';
-      default: return 'Welcome back, Dr. Chen';
+      default: 
+        final user = FirebaseAuth.instance.currentUser;
+        final name = user?.displayName ?? 'User';
+        return 'Welcome back, $name';
     }
   }
 

@@ -92,28 +92,34 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Logo
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.psychology,
-                              color: AppColors.primary, size: 28),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, '/'),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.psychology,
+                                  color: AppColors.primary, size: 28),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              AppStrings.appName,
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          AppStrings.appName,
-                          style: GoogleFonts.inter(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     // Main Text
                     Column(
@@ -147,45 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    // Footer / Trusted by
-                    Row(
-                      children: [
-                        // Placeholder for avatars
-                        SizedBox(
-                          width: 100,
-                          height: 40,
-                          child: Stack(
-                            children: [
-                              for (int i = 0; i < 3; i++)
-                                Positioned(
-                                  left: i * 28.0,
-                                  child: Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: AppColors.primary, width: 2),
-                                      color: Colors.grey[300], // Placeholder
-                                    ),
-                                    child: Icon(Icons.person,
-                                        size: 20, color: Colors.grey[600]),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Trusted by 2,000+ clinical professionals',
-                          style: GoogleFonts.inter(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+
                   ],
                 ),
               ),

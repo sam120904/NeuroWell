@@ -89,14 +89,16 @@ class HeroSection extends StatelessWidget {
           style: GoogleFonts.inter(
             fontSize: 16,
             height: 1.6,
-            color: AppColors.grey,
+            color: AppColors.textDim, // Darker for readability
           ),
         ),
         const SizedBox(height: 32),
         Row(
           children: [
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.pushNamed(context, '/login');
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accentOrange,
                 foregroundColor: Colors.white,
@@ -132,64 +134,12 @@ class HeroSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 40),
-        Row(
-          children: [
-            _avatarPlaceholder(),
-            const SizedBox(width: 12),
-            Text(
-              'Trusted by 500+ clinics worldwide',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.grey,
-              ),
-            ),
-          ],
-        ),
+
       ],
     );
   }
 
-  Widget _avatarPlaceholder() {
-    return SizedBox(
-      width: 80,
-      height: 32,
-      child: Stack(
-        children: [
-          _singleAvatar(0, Colors.blue),
-          _singleAvatar(20, Colors.red),
-          _singleAvatar(40, Colors.amber),
-        ],
-      ),
-    );
-  }
 
-  Widget _singleAvatar(double left, Color color) {
-    return Positioned(
-      left: left,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.2),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-          image: const DecorationImage(
-             // Using a generic placeholder image since I can't access assets
-             image: NetworkImage('https://placehold.co/100'), 
-             fit: BoxFit.cover,
-          ),
-        ),
-        child: Container( // Fallback if image fails or just as generic
-             decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-             ),
-             child: Icon(Icons.person, size: 16, color: Colors.white),
-        ),
-      ),
-    );
-  }
 
   Widget _buildRightContent(BuildContext context) {
     return Container(

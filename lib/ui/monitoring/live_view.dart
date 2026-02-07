@@ -4,6 +4,8 @@ import '../../core/constants.dart';
 import 'widgets/telemetry_card.dart';
 import 'widgets/telemetry_chart.dart';
 import '../../data/services/biosensor_service.dart';
+import 'package:provider/provider.dart';
+import '../../data/services/gemini_service.dart';
 import '../../data/models/biosensor_data_model.dart';
 
 class LiveMonitoringView extends StatefulWidget {
@@ -15,6 +17,9 @@ class LiveMonitoringView extends StatefulWidget {
 
 class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   final BiosensorService _service = BiosensorService();
+  final TextEditingController _notesController = TextEditingController();
+  String? _aiInsight;
+  bool _isGeneratingInsight = false;
 
   @override
   void initState() {
@@ -25,6 +30,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   @override
   void dispose() {
     _service.stopSimulation();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -316,6 +322,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
@@ -324,28 +331,96 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               children: [
                 const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
                 const SizedBox(width: 12),
-                Text('AI Insights', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                Text('AI Clinical Insights', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _notesController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Enter clinical observations (e.g., "Patient appears anxious during discussion of work")...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              filled: true,
+              fillColor: Colors.grey[50],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isGeneratingInsight ? null : _generateInsight,
+              icon: _isGeneratingInsight 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                  : const Icon(Icons.psychology),
+              label: Text(_isGeneratingInsight ? 'Analyzing...' : 'Generate Insight'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBrand,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.blue[50], shape: BoxShape.circle),
-                    child: Icon(Icons.psychology, size: 32, color: AppColors.primary.withOpacity(0.5)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('Waiting for analysis...', style: GoogleFonts.inter(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey[400])),
-                ],
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50]?.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.1)),
+              ),
+              child: SingleChildScrollView(
+                child: _aiInsight != null
+                    ? Text(
+                        _aiInsight!,
+                        style: GoogleFonts.inter(fontSize: 14, height: 1.5, color: Colors.black87),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.lightbulb_outline, size: 32, color: AppColors.primary.withOpacity(0.3)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Enter notes and click generate to get AI-powered insights based on live sensor data.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _generateInsight() async {
+    setState(() => _isGeneratingInsight = true);
+    
+    // In a real app, you'd get the latest value from the stream or service
+    // For now, we'll grab a snapshot from the service's current state if possible, 
+    // or just listen once.
+    final sensorData = await _service.dataStream.first; 
+    
+    if (!mounted) return;
+
+    final geminiService = Provider.of<GeminiService>(context, listen: false);
+    final insight = await geminiService.analyzeSession({
+      'heartRate': sensorData.heartRate,
+      'hrv': sensorData.hrv,
+      'gsr': sensorData.gsr,
+      'oxygenSaturation': sensorData.oxygenSaturation,
+    }, _notesController.text);
+
+    if (mounted) {
+      setState(() {
+        _aiInsight = insight;
+        _isGeneratingInsight = false;
+      });
+    }
   }
 }

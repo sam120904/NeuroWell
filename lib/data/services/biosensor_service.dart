@@ -1,42 +1,47 @@
 import 'dart:async';
-import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/biosensor_data_model.dart';
 
 class BiosensorService {
-  // Simulator for demo purposes
-  // In real app, this would be:
-  // final DatabaseReference _ref = FirebaseDatabase.instance.ref('sensors/esp32_01');
-
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _controller = StreamController<BiosensorData>.broadcast();
-  Timer? _timer;
+  StreamSubscription? _subscription;
 
   Stream<BiosensorData> get dataStream => _controller.stream;
 
   void startSimulation() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final now = DateTime.now();
-      final random = Random();
-      
-      // Simulate realistic fluctuations
-      final data = BiosensorData(
-        timestamp: now,
-        heartRate: 70 + random.nextInt(10), // 70-80 BPM
-        oxygenSaturation: 95 + random.nextInt(4), // 95-99%
-        hrv: 50 + random.nextInt(20), // 50-70 ms
-        gsr: 200 + random.nextInt(50), // 200-250 µS
-      );
-      
-      _controller.add(data);
-    });
+    // Connect to Firestore "live" session
+    try {
+      _subscription = _firestore
+          .collection('live_sessions')
+          .doc('current')
+          .snapshots()
+          .listen((snapshot) {
+        if (snapshot.exists && snapshot.data() != null) {
+          final data = snapshot.data()!;
+          final sensorData = BiosensorData(
+            timestamp: DateTime.now(), // Or parse from Firestore if available
+            heartRate: data['heartRate'] ?? 0,
+            oxygenSaturation: data['oxygenSaturation'] ?? 0,
+            hrv: data['hrv'] ?? 0,
+            gsr: data['gsr'] ?? 0,
+          );
+          _controller.add(sensorData);
+        }
+      }, onError: (error) {
+        print('Error listening to sensor data: $error');
+      });
+    } catch (e) {
+      print('Error starting sensor service: $e');
+    }
   }
 
   void stopSimulation() {
-    _timer?.cancel();
+    _subscription?.cancel();
   }
 
   void dispose() {
-     _timer?.cancel();
+    _subscription?.cancel();
     _controller.close();
   }
 }

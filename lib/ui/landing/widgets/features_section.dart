@@ -27,11 +27,12 @@ class FeaturesSection extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'Advanced tools designed specifically for modern healthcare providers to deliver better patient outcomes.',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              color: AppColors.grey,
-            ),
             textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              color: AppColors.textDim, // Darker grey for readability
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 64),
           isDesktop
@@ -95,10 +96,10 @@ class FeaturesSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -110,7 +111,7 @@ class FeaturesSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1), // Light background for icon
+              color: color.withOpacity(0.1), // Light background for icon
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 28),
@@ -130,7 +131,7 @@ class FeaturesSection extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 14,
               height: 1.6,
-              color: AppColors.grey,
+              color: AppColors.textDim, // Darker grey for readability
             ),
           ),
         ],

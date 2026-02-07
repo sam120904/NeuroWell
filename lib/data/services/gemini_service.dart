@@ -1,23 +1,27 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter/foundation.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class GeminiService {
-  // TODO: Replace with your actual API key
-  // Recommended: Use --dart-define=GEMINI_API_KEY=... at build time
-  static const String _apiKey = 'AIzaSyB_e38TcWai7Idql_uckwIF91jyqMU5T2Y';
-  
   late final GenerativeModel _model;
 
   GeminiService() {
+    final apiKey = dotenv.env['GEMINI_API_KEY'];
+    if (apiKey == null) {
+      debugPrint('Gemini API Key not found in .env');
+       // Handle error appropriately, maybe disable features or show a warning
+    }
     _model = GenerativeModel(
       model: 'gemini-1.5-flash',
-      apiKey: _apiKey,
+      apiKey: apiKey ?? '',
     );
   }
 
   Future<String> generateInsight(String patientData) async {
-    if (_apiKey == 'YOUR_API_KEY_HERE') {
-      return 'Please configure your Gemini API Key in lib/data/services/gemini_service.dart';
+    final apiKey = dotenv.env['GEMINI_API_KEY'];
+    if (apiKey == null || apiKey.isEmpty) {
+      return 'Please configure GEMINI_API_KEY in .env file';
     }
 
     final content = [Content.text(patientData)];
@@ -28,6 +32,23 @@ class GeminiService {
       debugPrint('Gemini Error: $e');
       return 'Failed to generate insight: $e';
     }
+  }
+
+  Future<String> analyzeSession(Map<String, dynamic> biosensorData, String notes) async {
+    final prompt = '''
+      Analyze the following live biosensor data and therapist notes for a patient during a session.
+      
+      Biosensor Data:
+      Heart Rate: ${biosensorData['heartRate']} bpm
+      HRV: ${biosensorData['hrv']} ms
+      GSR: ${biosensorData['gsr']} µS
+      Oxygen Saturation: ${biosensorData['oxygenSaturation']}%
+      
+      Therapist Notes: "$notes"
+      
+      Provide a brief clinical insight (max 3 sentences) interpreting the physiological data in context of the notes. Focus on stress, relaxation, or potential anomalies.
+    ''';
+    return generateInsight(prompt);
   }
 
   Future<String> analyzePatientStress(Map<String, dynamic> biosensorData) async {

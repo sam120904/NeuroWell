@@ -5,13 +5,19 @@ import 'core/theme.dart';
 import 'core/constants.dart';
 import 'ui/landing/landing_page.dart';
 import 'ui/auth/login_screen.dart';
+import 'ui/auth/signup_screen.dart';
 import 'ui/dashboard/dashboard_layout.dart';
 import 'firebase_options.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/gemini_service.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize DotEnv
+  await dotenv.load(fileName: ".env");
   
   // Initialize Firebase
   try {
@@ -50,6 +56,7 @@ class NeurowellApp extends StatelessWidget {
         routes: {
           '/': (context) => const LandingPage(),
           '/login': (context) => const LoginScreen(),
+          '/signup': (context) => const SignupScreen(),
           '/dashboard': (context) => const DashboardLayout(),
         },
       ),

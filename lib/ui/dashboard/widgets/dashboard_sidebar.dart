@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/constants.dart';
 
 class DashboardSidebar extends StatelessWidget {
@@ -88,45 +89,55 @@ class DashboardSidebar extends StatelessWidget {
                 color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                children: [
-                  Row(
+              child: StreamBuilder<User?>(
+                stream: FirebaseAuth.instance.authStateChanges(),
+                builder: (context, snapshot) {
+                  final user = snapshot.data;
+                  final displayName = user?.displayName ?? 'Clinician';
+                  final email = user?.email ?? 'No Email';
+                  final initial = email.isNotEmpty ? email[0].toUpperCase() : 'C';
+
+                  return Column(
                     children: [
-                      const CircleAvatar(
-                        radius: 16,
-                        backgroundColor: AppColors.primary, // Placeholder
-                        child: Text('S', style: TextStyle(color: Colors.white)),
+                      Row(
+                        children: [
+                           CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AppColors.primary,
+                            child: Text(initial, style: const TextStyle(color: Colors.white)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  displayName == 'Clinician' && email != 'No Email' ? email.split('@')[0] : displayName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  'Online',
+                                  style: TextStyle(color: Colors.green[600], fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Dr. Sarah Chen',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              'Online',
-                              style: TextStyle(color: Colors.green[600], fontSize: 10),
-                            ),
-                          ],
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                        icon: const Icon(Icons.logout, size: 16),
+                        label: const Text('Sign Out', style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 36),
+                          side: BorderSide(color: Colors.grey.withOpacity(0.3)),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                    icon: const Icon(Icons.logout, size: 16),
-                    label: const Text('Sign Out', style: TextStyle(fontSize: 12)),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 36),
-                      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                    ),
-                  ),
-                ],
+                  );
+                }
               ),
             ),
           ),

@@ -120,7 +120,7 @@ class FooterSection extends StatelessWidget {
             link,
             style: GoogleFonts.inter(
               fontSize: 14,
-              color: AppColors.grey,
+              color: Colors.grey[600],
             ),
           ),
         )),
@@ -149,38 +149,38 @@ class FooterSection extends StatelessWidget {
             border: Border.all(color: Colors.grey[200]!),
           ),
           child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'clinician@hospital.com',
-                    hintStyle: GoogleFonts.inter(fontSize: 14, color: Colors.grey[400]),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
-              Container(
-                 padding: const EdgeInsets.all(8),
-                 decoration: const BoxDecoration(
-                   color: AppColors.primaryBrand,
-                   shape: BoxShape.circle,
+             children: [
+               Expanded(
+                 child: TextField(
+                   decoration: InputDecoration(
+                     hintText: 'clinician@hospital.com',
+                     hintStyle: GoogleFonts.inter(fontSize: 14, color: Colors.grey[500]),
+                     border: InputBorder.none,
+                     isDense: true,
+                     contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                   ),
                  ),
-                 child: Icon(Icons.arrow_forward, color: Colors.white, size: 16),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        Row(
-          children: [
-            Icon(Icons.language, color: Colors.grey[400], size: 20),
-            const SizedBox(width: 16),
-            Icon(Icons.alternate_email, color: Colors.grey[400], size: 20),
-            const SizedBox(width: 16),
-            Icon(Icons.share, color: Colors.grey[400], size: 20),
-          ],
+               ),
+               Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryBrand,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.arrow_forward, color: Colors.white, size: 16),
+               ),
+             ],
+           ),
+         ),
+         const SizedBox(height: 24),
+         Row(
+           children: [
+             Icon(Icons.language, color: Colors.grey[600], size: 20),
+             const SizedBox(width: 16),
+             Icon(Icons.alternate_email, color: Colors.grey[600], size: 20),
+             const SizedBox(width: 16),
+             Icon(Icons.share, color: Colors.grey[600], size: 20),
+           ],
         ),
       ],
     );

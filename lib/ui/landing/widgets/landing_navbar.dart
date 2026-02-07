@@ -64,7 +64,7 @@ class LandingNavbar extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, '/login'),
+                onPressed: () => Navigator.pushNamed(context, '/signup'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryBrand,
                   foregroundColor: Colors.white,
