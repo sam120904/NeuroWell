@@ -77,8 +77,12 @@ class _SessionHistoryState extends State<SessionHistory> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 1024;
+    final isMobile = screenWidth < 768;
+
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
       child: Column(
         children: [
 
@@ -138,47 +142,92 @@ class _SessionHistoryState extends State<SessionHistory> {
                       // I will return the StreamBuilder at the top level of `build`.
                       return Column(
                         children: [
-                           // Moved Filter Bar Inside
+                           // Responsive Filter Bar
                            Container(
-                             padding: const EdgeInsets.all(16),
+                             padding: EdgeInsets.all(isMobile ? 12 : 16),
                              decoration: BoxDecoration(
                                color: Theme.of(context).cardColor,
                                borderRadius: BorderRadius.circular(12),
                                border: Border.all(color: Colors.grey.withOpacity(0.2)),
                              ),
-                             child: Row(
-                               children: [
-                                 Expanded(
-                                   child: TextField(
-                                     controller: _searchController,
-                                     decoration: const InputDecoration(
-                                       hintText: 'Search sessions by Patient ID...',
-                                       prefixIcon: Icon(Icons.search),
-                                       border: InputBorder.none,
-                                     ),
-                                     onChanged: (val) => setState(() {}),
+                             child: isMobile
+                                 ? Column(
+                                     crossAxisAlignment: CrossAxisAlignment.stretch,
+                                     children: [
+                                       // Search field on top
+                                       TextField(
+                                         controller: _searchController,
+                                         decoration: const InputDecoration(
+                                           hintText: 'Search by Patient ID...',
+                                           prefixIcon: Icon(Icons.search),
+                                           border: InputBorder.none,
+                                           isDense: true,
+                                         ),
+                                         onChanged: (val) => setState(() {}),
+                                       ),
+                                       const SizedBox(height: 8),
+                                       // Filter buttons wrap
+                                       Wrap(
+                                         spacing: 8,
+                                         runSpacing: 8,
+                                         children: [
+                                           TextButton.icon(
+                                             onPressed: () => _selectDateRange(context),
+                                             icon: const Icon(Icons.calendar_month, size: 18),
+                                             label: Text(
+                                               _dateRange == null 
+                                                 ? 'Date' 
+                                                 : '${DateFormat('MM/dd').format(_dateRange!.start)}-${DateFormat('MM/dd').format(_dateRange!.end)}',
+                                               style: const TextStyle(fontSize: 12),
+                                             ),
+                                           ),
+                                           TextButton.icon(
+                                             onPressed: () => _showFilterDialog(context),
+                                             icon: Icon(Icons.filter_list, size: 18, color: _selectedStatus != null ? AppColors.primary : null),
+                                             label: Text(_selectedStatus ?? 'Filter', style: const TextStyle(fontSize: 12)),
+                                           ),
+                                           TextButton.icon(
+                                             onPressed: () => _exportData(sessions),
+                                             icon: const Icon(Icons.download, size: 18),
+                                             label: const Text('Export', style: TextStyle(fontSize: 12)),
+                                           ),
+                                         ],
+                                       ),
+                                     ],
+                                   )
+                                 : Row(
+                                     children: [
+                                       Expanded(
+                                         child: TextField(
+                                           controller: _searchController,
+                                           decoration: const InputDecoration(
+                                             hintText: 'Search sessions by Patient ID...',
+                                             prefixIcon: Icon(Icons.search),
+                                             border: InputBorder.none,
+                                           ),
+                                           onChanged: (val) => setState(() {}),
+                                         ),
+                                       ),
+                                       const VerticalDivider(),
+                                       TextButton.icon(
+                                         onPressed: () => _selectDateRange(context),
+                                         icon: const Icon(Icons.calendar_month),
+                                         label: Text(_dateRange == null 
+                                           ? 'Last 30 Days' 
+                                           : '${DateFormat('MMM dd').format(_dateRange!.start)} - ${DateFormat('MMM dd').format(_dateRange!.end)}'),
+                                       ),
+                                       TextButton.icon(
+                                         onPressed: () => _showFilterDialog(context),
+                                         icon: Icon(Icons.filter_list, color: _selectedStatus != null ? AppColors.primary : null),
+                                         label: Text(_selectedStatus ?? 'Filters'),
+                                       ),
+                                       TextButton.icon(
+                                         onPressed: () => _exportData(sessions),
+                                         icon: const Icon(Icons.download),
+                                         label: const Text('Export'),
+                                       ),
+                                     ],
                                    ),
-                                 ),
-                                 const VerticalDivider(),
-                                 TextButton.icon(
-                                   onPressed: () => _selectDateRange(context),
-                                   icon: const Icon(Icons.calendar_month),
-                                   label: Text(_dateRange == null 
-                                     ? 'Last 30 Days' 
-                                     : '${DateFormat('MMM dd').format(_dateRange!.start)} - ${DateFormat('MMM dd').format(_dateRange!.end)}'),
-                                 ),
-                                 TextButton.icon(
-                                   onPressed: () => _showFilterDialog(context),
-                                   icon: Icon(Icons.filter_list, color: _selectedStatus != null ? AppColors.primary : null),
-                                   label: Text(_selectedStatus ?? 'Filters'),
-                                 ),
-                                 TextButton.icon(
-                                   onPressed: () => _exportData(sessions),
-                                   icon: const Icon(Icons.download),
-                                   label: const Text('Export'),
-                                 ),
-                               ],
-                             ),
                            ),
                            const SizedBox(height: 24),
                            Expanded(

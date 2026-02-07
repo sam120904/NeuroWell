@@ -18,13 +18,23 @@ class LiveMonitoringView extends StatefulWidget {
 class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   final BiosensorService _service = BiosensorService();
   final TextEditingController _notesController = TextEditingController();
+  final List<String> _logs = [];
   String? _aiInsight;
   bool _isGeneratingInsight = false;
-
+  bool _isSessionActive = false;
+  
   @override
   void initState() {
     super.initState();
-    _service.startSimulation();
+    // Subscribe to logs
+    _service.logStream.listen((log) {
+      if (mounted) {
+        setState(() {
+          _logs.insert(0, log);
+          if (_logs.length > 50) _logs.removeLast();
+        });
+      }
+    });
   }
 
   @override
@@ -34,106 +44,143 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     super.dispose();
   }
 
+  void _toggleSession() {
+    setState(() {
+      _isSessionActive = !_isSessionActive;
+      if (_isSessionActive) {
+        _logs.clear(); // Clear logs on new session
+        _service.startSimulation();
+      } else {
+        _service.stopSimulation();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<BiosensorData>(
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 1024;
+    final isTablet = screenWidth >= 768 && screenWidth < 1024;
+
+    if (!_isSessionActive) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.monitor_heart_outlined, size: 64, color: AppColors.primary),
+            const SizedBox(height: 24),
+            Text(
+              'Live Monitoring Stopped',
+              style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Start a session to connect to the biosensor hardware',
+              style: GoogleFonts.inter(fontSize: 16, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _toggleSession,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('START LIVE SESSION'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return StreamBuilder<BiosensorData?>(
       stream: _service.dataStream,
       builder: (context, snapshot) {
         final data = snapshot.data;
+        final isConnected = data != null;
+        
         final hr = data?.heartRate.toString() ?? '--';
-        final spo2 = data?.oxygenSaturation.toString() ?? '--';
-        final hrv = data?.hrv.toString() ?? '--';
-        final gsr = data?.gsr.toString() ?? '--';
+        final spo2 = data?.spo2.toString() ?? '--';
+        final gsr = data?.gsr.toStringAsFixed(1) ?? '--';
+        final isStressed = data?.isStressed ?? false;
 
         return Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
           child: Column(
             children: [
-              // Header
-              _buildHeader(context, snapshot.hasData),
-              const SizedBox(height: 32),
-
-              // Grid
+              _buildHeader(context, isConnected),
+              const SizedBox(height: 16),
+              if (!isConnected)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.sensors_off, color: Colors.red[700], size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hardware Offline',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.red[700]),
+                            ),
+                            Text(
+                              'ESP32 disconnected. Check debug logs below.',
+                              style: GoogleFonts.inter(fontSize: 12, color: Colors.red[600]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
               Expanded(
-                child: Row(
+                child: isDesktop 
+                    ? _buildDesktopContent(context, isConnected, hr, spo2, gsr, isStressed)
+                    : _buildTabletMobileContent(context, isConnected, hr, spo2, gsr, isStressed, isTablet),
+              ),
+              
+              const SizedBox(height: 16),
+              // Debug Console
+              Container(
+                height: 150,
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        children: [
-                          // Cards
-                          Row(
-                            children: [
-                              Expanded(child: TelemetryCard(title: 'Heart Rate', value: hr, unit: 'BPM', icon: Icons.favorite, color: Colors.red)),
-                              const SizedBox(width: 16),
-                              Expanded(child: TelemetryCard(title: 'Blood Oxygen', value: spo2, unit: '%', icon: Icons.water_drop, color: Colors.blue)),
-                              const SizedBox(width: 16),
-                              Expanded(child: TelemetryCard(title: 'HRV', value: hrv, unit: 'ms', icon: Icons.timer, color: Colors.amber)),
-                              const SizedBox(width: 16),
-                              Expanded(child: TelemetryCard(title: 'GSR', value: gsr, unit: 'µS', icon: Icons.bolt, color: Colors.purple)),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-                          // Charts
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.withOpacity(0.1)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue[50],
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: const Icon(Icons.show_chart, color: AppColors.primary, size: 20),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text('Physiological Trends',
-                                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                      // Legend
-                                      Row(
-                                        children: [
-                                          _legendItem('Heart Rate', Colors.redAccent),
-                                          const SizedBox(width: 16),
-                                          _legendItem('HRV', Colors.amber),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 24),
-                                  const Expanded(child: TelemetryChart()), // Note: Chart needs to accept data points to animate
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('CONNECTION LOGS', style: GoogleFonts.robotoMono(fontSize: 12, color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                        Text('Auto-scroll', style: GoogleFonts.robotoMono(fontSize: 10, color: Colors.grey)),
+                      ],
                     ),
-                    const SizedBox(width: 24),
-                    // Sidebar (Stress Score & AI)
+                    const Divider(color: Colors.white24, height: 16),
                     Expanded(
-                      flex: 1,
-                      child: Column(
-                        children: [
-                          _stressScoreCard(context),
-                          const SizedBox(height: 24),
-                          Expanded(child: _aiInsightsCard(context)),
-                        ],
+                      child: ListView.builder(
+                        itemCount: _logs.length,
+                        itemBuilder: (context, index) {
+                          return Text(
+                            _logs[index],
+                            style: GoogleFonts.robotoMono(fontSize: 11, color: Colors.white70),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -143,6 +190,154 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
           ),
         );
       }
+    );
+  }
+
+  Widget _buildDesktopContent(BuildContext context, bool hasData, String hr, String spo2, String gsr, bool isStressed) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: Column(
+            children: [
+              // 3 Sensor Cards: Heart Beat, SpO2, GSR
+              Row(
+                children: [
+                  Expanded(child: TelemetryCard(title: 'Heart Rate', value: hr, unit: 'BPM', icon: Icons.favorite, color: isStressed ? Colors.orange : Colors.red)),
+                  const SizedBox(width: 16),
+                  Expanded(child: TelemetryCard(title: 'SpO2', value: spo2, unit: '%', icon: Icons.water_drop, color: Colors.blue)),
+                  const SizedBox(width: 16),
+                  Expanded(child: TelemetryCard(title: 'GSR', value: gsr, unit: 'µS', icon: Icons.bolt, color: Colors.purple)),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // Charts
+              Expanded(child: _buildChartCard(context)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 24),
+        // Sidebar (Stress Score & AI)
+        Expanded(
+          flex: 1,
+          child: Column(
+            children: [
+              _stressScoreCard(context),
+              const SizedBox(height: 24),
+              Expanded(child: _aiInsightsCard(context)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabletMobileContent(BuildContext context, bool hasData, String hr, String spo2, String gsr, bool isStressed, bool isTablet) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 3 Sensor Cards: Heart Beat, SpO2, GSR
+          if (isTablet)
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: TelemetryCard(title: 'Heart Rate', value: hr, unit: 'BPM', icon: Icons.favorite, color: isStressed ? Colors.orange : Colors.red)),
+                    const SizedBox(width: 12),
+                    Expanded(child: TelemetryCard(title: 'SpO2', value: spo2, unit: '%', icon: Icons.water_drop, color: Colors.blue)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TelemetryCard(title: 'GSR', value: gsr, unit: 'µS', icon: Icons.bolt, color: Colors.purple),
+              ],
+            )
+          else
+            Column(
+              children: [
+                TelemetryCard(title: 'Heart Rate', value: hr, unit: 'BPM', icon: Icons.favorite, color: isStressed ? Colors.orange : Colors.red),
+                const SizedBox(height: 12),
+                TelemetryCard(title: 'SpO2', value: spo2, unit: '%', icon: Icons.water_drop, color: Colors.blue),
+                const SizedBox(height: 12),
+                TelemetryCard(title: 'GSR', value: gsr, unit: 'µS', icon: Icons.bolt, color: Colors.purple),
+              ],
+            ),
+
+          const SizedBox(height: 24),
+
+          // Chart
+          SizedBox(
+            height: 300,
+            child: _buildChartCard(context),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Stress Score Card
+          _stressScoreCard(context),
+
+          const SizedBox(height: 24),
+
+          // AI Insights Card
+          SizedBox(
+            height: 350,
+            child: _aiInsightsCard(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildChartCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.show_chart, color: AppColors.primary, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('Physiological Trends',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(width: 24),
+                // Legend
+                Row(
+                  children: [
+                    _legendItem('Heart Rate', Colors.redAccent),
+                    const SizedBox(width: 16),
+                    _legendItem('HRV', Colors.amber),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Expanded(child: TelemetryChart()),
+        ],
+      ),
     );
   }
 
@@ -237,6 +432,15 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               ],
             ),
             const SizedBox(width: 24),
+            TextButton.icon(
+              onPressed: _toggleSession,
+              icon: const Icon(Icons.stop, color: Colors.red),
+              label: const Text('STOP SESSION', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.red.withOpacity(0.1),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
             OutlinedButton(
               onPressed: () {},
               style: OutlinedButton.styleFrom(
@@ -278,19 +482,25 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-               StreamBuilder<BiosensorData>(
+               StreamBuilder<BiosensorData?>(
                 stream: _service.dataStream,
                 builder: (context, snapshot) {
-                  // Mock calculation: Normalize HRV and GSR to a score 0-10
-                  // Low HRV + High GSR = High Stress
-                  double score = 3.5;
-                  if (snapshot.hasData) {
-                     // Simple mock logic
-                     score = (100 - snapshot.data!.hrv) / 10;
-                     if(score < 0) score = 0;
-                     if(score > 10) score = 10;
+                  // Stress calculation based on Heart Rate and SpO2
+                  // Higher HR (>100) and lower SpO2 (<95) = Higher Stress
+                  double score = 0.0;
+                  if (snapshot.hasData && snapshot.data != null) {
+                     final data = snapshot.data!;
+                     // Normalize HR: 60=0, 140=10
+                     double hrScore = ((data.heartRate - 60) / 80) * 10;
+                     // Normalize SpO2: 100=0, 90=10 (inverted)
+                     double spo2Score = ((100 - data.spo2) / 10) * 10;
+                     // Combined score
+                     score = (hrScore + spo2Score) / 2;
+                     score = score.clamp(0.0, 10.0);
+                  } else {
+                    return Text('--', style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w900, color: Colors.grey[400]));
                   }
-                  return Text(score.toStringAsFixed(1), style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w900));
+                  return Text(score.toStringAsFixed(1), style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w900, color: score > 5 ? Colors.orange : Colors.green));
                 }
               ),
               Text('/ 10', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
@@ -408,12 +618,21 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     
     if (!mounted) return;
 
+    // Can't generate insight when offline (no data)
+    if (sensorData == null) {
+      setState(() {
+        _aiInsight = 'Cannot generate insights while hardware is offline.';
+        _isGeneratingInsight = false;
+      });
+      return;
+    }
+
     final geminiService = Provider.of<GeminiService>(context, listen: false);
     final insight = await geminiService.analyzeSession({
       'heartRate': sensorData.heartRate,
-      'hrv': sensorData.hrv,
+      'spo2': sensorData.spo2,
       'gsr': sensorData.gsr,
-      'oxygenSaturation': sensorData.oxygenSaturation,
+      'isStressed': sensorData.isStressed,
     }, _notesController.text);
 
     if (mounted) {
