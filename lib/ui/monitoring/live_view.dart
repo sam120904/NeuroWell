@@ -30,6 +30,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   
   // Timer State
   Timer? _sessionTimer;
+  Timer? _insightTimer; // Auto-generate insights periodically
   StreamSubscription? _dataSubscription;
   Duration _sessionDuration = Duration.zero;
   final List<Map<String, dynamic>> _sessionTimelineData = []; // Store session data points
@@ -53,6 +54,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     _service.stopSimulation();
     _transcriptionService.dispose();
     _sessionTimer?.cancel();
+    _insightTimer?.cancel();
     _dataSubscription?.cancel();
     _notesController.dispose();
     super.dispose();
@@ -62,6 +64,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     if (_isSessionActive) {
       // Logic when turning OFF
       _sessionTimer?.cancel();
+      _insightTimer?.cancel();
       _dataSubscription?.cancel();
       _service.stopSimulation();
       await _transcriptionService.stopListening();
@@ -101,9 +104,26 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         }
       });
       
+      // Auto-generate insights every 15 seconds
+      _insightTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+        if (mounted && _isSessionActive && !_isGeneratingInsight) {
+          _autoGenerateInsight();
+        }
+      });
+      
       _service.startSimulation();
+      // Transcription is now optional - controlled by toggle button
+    }
+  }
+  
+  /// Toggle transcription recording on/off
+  void _toggleRecording() async {
+    if (_transcriptionService.isListening) {
+      await _transcriptionService.stopListening();
+    } else {
       await _transcriptionService.startListening();
     }
+    if (mounted) setState(() {});
   }
 
   void _showSessionSummary() {
@@ -282,7 +302,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          flex: 3,
+          flex: 2, // Reduced from 3 to give more space to right panel
           child: Column(
             children: [
               // 3 Sensor Cards: Heart Beat, SpO2, GSR
@@ -302,9 +322,9 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
           ),
         ),
         const SizedBox(width: 24),
-        // Sidebar (Stress Score & AI)
+        // Sidebar (Stress Score & AI) - Increased width
         Expanded(
-          flex: 1,
+          flex: 1, // Stays 1, but relative to flex:2 gives ~33% width
           child: Column(
             children: [
               _stressScoreCard(context),
@@ -610,123 +630,114 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
 
   Widget _aiInsightsCard(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min, // Allow it to shrink
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
-            child: Row(
-              children: [
-                const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'AI Clinical Insights', 
-                    style: GoogleFonts.inter(fontWeight: FontWeight.bold)
+          // Header Row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [Colors.blue[400]!, Colors.purple[400]!]),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('AI Clinical Insights', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+              ),
+              // Recording Toggle Button
+              GestureDetector(
+                onTap: _isSessionActive ? _toggleRecording : null,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _transcriptionService.isListening ? Colors.red.withOpacity(0.1) : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _transcriptionService.isListening ? Colors.red.withOpacity(0.3) : Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _transcriptionService.isListening ? Icons.mic : Icons.mic_off,
+                        color: _transcriptionService.isListening ? Colors.red : Colors.grey[600],
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _transcriptionService.isListening ? 'REC' : 'MIC',
+                        style: GoogleFonts.inter(
+                          color: _transcriptionService.isListening ? Colors.red : Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (_transcriptionService.isListening)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
-                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Insight Display Area - Flexible height
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: _isGeneratingInsight
+                ? Center(
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                         const Icon(Icons.mic, color: Colors.red, size: 14),
-                         const SizedBox(width: 4),
-                         Text('REC', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10)),
+                        const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(width: 10),
+                        Text('Analyzing...', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 12)),
                       ],
                     ),
                   )
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Transcription View
-          Container(
-             height: 80,
-             width: double.infinity,
-             padding: const EdgeInsets.all(8),
-             margin: const EdgeInsets.only(bottom: 12),
-             decoration: BoxDecoration(
-               color: Colors.grey[50], 
-               borderRadius: BorderRadius.circular(8),
-               border: Border.all(color: Colors.grey[200]!)
-             ),
-             child: SingleChildScrollView(
-               child: Text(
-                 _transcription.isEmpty ? 'Waiting for speech...' : _transcription,
-                 style: GoogleFonts.inter(color: Colors.grey[700], fontSize: 12),
-               ),
-             ),
-          ),
-          TextField(
-            controller: _notesController,
-            maxLines: 2, 
-            decoration: InputDecoration(
-              hintText: 'Enter clinical observations...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              filled: true,
-              fillColor: Colors.grey[50],
-              contentPadding: const EdgeInsets.all(12),
+                : SingleChildScrollView(
+                    child: Text(
+                      _aiInsight ?? 'Click "Generate Insight" to analyze current session data.',
+                      style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: _aiInsight != null ? Colors.black87 : Colors.grey[500]),
+                    ),
+                  ),
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Generate Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _isGeneratingInsight ? null : _generateInsight,
-              icon: _isGeneratingInsight 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                  : const Icon(Icons.psychology),
-              label: Text(_isGeneratingInsight ? 'Analyzing...' : 'Generate Insight'),
+              icon: const Icon(Icons.psychology, size: 18),
+              label: Text('Generate Insight', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryBrand,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                disabledBackgroundColor: Colors.grey[300],
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Flexible container for insights
-          Container(
-            height: 200, // Fixed height for insights to prevent overflow
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue[50]?.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.withOpacity(0.1)),
-            ),
-            child: SingleChildScrollView(
-              child: _aiInsight != null
-                  ? Text(
-                      _aiInsight!,
-                      style: GoogleFonts.inter(fontSize: 14, height: 1.5, color: Colors.black87),
-                    )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.lightbulb_outline, size: 32, color: AppColors.primary.withOpacity(0.3)),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Enter notes and click generate to get AI-powered insights based on live sensor data.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
             ),
           ),
         ],
@@ -775,6 +786,55 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       if (mounted) {
         setState(() {
           _aiInsight = 'Error generating insight: $e';
+          _isGeneratingInsight = false;
+        });
+      }
+    }
+  }
+
+  /// Auto-generates insights periodically during the session
+  void _autoGenerateInsight() async {
+    if (!mounted || !_isSessionActive || _sessionTimelineData.isEmpty) return;
+    
+    setState(() => _isGeneratingInsight = true);
+    
+    // Get recent data (last 15 entries = 15 seconds of data)
+    final recentData = _sessionTimelineData.length > 15 
+        ? _sessionTimelineData.sublist(_sessionTimelineData.length - 15) 
+        : _sessionTimelineData;
+    
+    // Calculate averages for the recent window
+    int avgHr = 0;
+    int avgSpo2 = 0;
+    int stressCount = 0;
+    
+    if (recentData.isNotEmpty) {
+      avgHr = (recentData.map((e) => e['heartRate'] as int).reduce((a, b) => a + b) / recentData.length).round();
+      avgSpo2 = (recentData.map((e) => e['spo2'] as int).reduce((a, b) => a + b) / recentData.length).round();
+      stressCount = recentData.where((e) => e['isStressed'] == true).length;
+    }
+
+    final geminiService = Provider.of<GeminiService>(context, listen: false);
+    
+    try {
+      final insight = await geminiService.analyzeLiveSession(
+        avgHr, 
+        avgSpo2, 
+        stressCount,
+        _transcription,
+        _formatDuration(_sessionDuration),
+      );
+
+      if (mounted) {
+        setState(() {
+          _aiInsight = insight;
+          _isGeneratingInsight = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _aiInsight = 'Live analysis unavailable: $e';
           _isGeneratingInsight = false;
         });
       }
@@ -858,22 +918,25 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
             const SizedBox(height: 16),
             Text('Transcript', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Container(
-              height: 100,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[50], 
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!)
-              ),
-              child: SingleChildScrollView(
-                child: Text(
-                  widget.transcript.isEmpty ? 'No speech detected.' : widget.transcript,
-                  style: GoogleFonts.inter(color: Colors.grey[700]),
+            // Transcript - Expanded to fill available space
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50], 
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[200]!)
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    widget.transcript.isEmpty ? 'No speech detected.' : widget.transcript,
+                    style: GoogleFonts.inter(color: Colors.grey[700], fontSize: 14, height: 1.5),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -891,15 +954,16 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
             ),
             if (_report != null)
               Expanded(
+                flex: 3, // Give more space to report
                 child: Container(
                   margin: const EdgeInsets.only(top: 16),
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.blue[50],
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: SingleChildScrollView(
-                    child: Text(_report!, style: GoogleFonts.inter(fontSize: 12)),
+                    child: Text(_report!, style: GoogleFonts.inter(fontSize: 14, height: 1.6)),
                   ),
                 ),
               )

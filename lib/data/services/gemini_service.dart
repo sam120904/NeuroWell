@@ -96,4 +96,29 @@ class GeminiService {
     ''';
     return generateInsight(prompt);
   }
+
+  /// Analyze live session data for real-time insights (called periodically during session)
+  Future<String> analyzeLiveSession(int avgHr, int avgSpo2, int stressCount, String transcript, String sessionDuration) async {
+    final prompt = '''
+      You are a clinical AI assistant providing LIVE real-time insights during an active therapy session.
+      
+      Current Session Duration: $sessionDuration
+      
+      Recent Physiological Data (last 15 seconds):
+      - Average Heart Rate: $avgHr bpm
+      - Average SpO2: $avgSpo2%
+      - Stress Indicators Detected: $stressCount times
+      
+      Recent Speech/Transcript:
+      "${transcript.isEmpty ? 'No speech detected yet.' : transcript}"
+      
+      Provide a BRIEF (2-3 sentences max) real-time clinical observation:
+      - Is the patient calm, stressed, or showing signs of anxiety?
+      - If speech is present, does the physiological data correlate with the topic being discussed?
+      - Any immediate recommendations for the therapist?
+      
+      Keep it concise and actionable. This updates every 15 seconds.
+    ''';
+    return generateInsight(prompt);
+  }
 }
