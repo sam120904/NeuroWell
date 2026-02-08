@@ -13,7 +13,7 @@ class GeminiService {
        // Handle error appropriately, maybe disable features or show a warning
     }
     _model = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: apiKey ?? '',
     );
   }
@@ -63,7 +63,13 @@ class GeminiService {
     ''';
     return generateInsight(prompt);
   }
-  Future<String> generateSessionReport(String transcript, String duration, Map<String, dynamic> avgStats) async {
+
+  Future<String> generateSessionReport(String transcript, String duration, Map<String, dynamic> avgStats, List<Map<String, dynamic>> timelineData) async {
+    // Format the timeline data into a string
+    final timelineString = timelineData.map((e) {
+      return "- ${e['timestamp']}: HR=${e['heartRate']}, SpO2=${e['spo2']}, Stress=${e['isStressed']}";
+    }).join('\n');
+
     final prompt = '''
       You are a clinical assistant generating a post-session report for a therapy session.
       
@@ -74,13 +80,16 @@ class GeminiService {
       - SpO2: ${avgStats['avgSpo2']}%
       - Stress Events (High HR/Low SpO2): ${avgStats['stressEvents']}
       
+      Detailed Sensor Timeline (Sampled every few seconds):
+      $timelineString
+      
       Full Session Transcript:
       "$transcript"
       
       Please provide a comprehensive report including:
       1. **Patient State Summary**: Based on physiological data (stress levels).
       2. **Key Topics Discussed**: Briefly summarize the main themes from the transcript.
-      3. **Clinical Observations**: Correlate any stress markers with specific topics if possible (infer from context).
+      3. **Clinical Observations**: CORRELATE any spikes in Heart Rate or Stress Markers from the timeline with specific topics or moments in the transcript.
       4. **Recommendations**: Suggested next steps or focus areas for the next session.
       
       Format with clear Markdown headings.

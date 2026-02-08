@@ -30,7 +30,12 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   
   // Timer State
   Timer? _sessionTimer;
+  Timer? _retryTimer; // Timer for rapid offline retry
+  StreamSubscription? _dataSubscription;
+  StreamSubscription? _audioErrorSubscription;
+  StreamSubscription? _listeningStateSubscription;
   Duration _sessionDuration = Duration.zero;
+  final List<Map<String, dynamic>> _sessionTimelineData = []; // Store session data points
   
   @override
   void initState() {
@@ -43,6 +48,24 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         });
       }
     });
+    
+    // Listen for audio errors
+    _audioErrorSubscription = _transcriptionService.errorStream.listen((error) {
+      if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Microphone Error: $error'), backgroundColor: Colors.red),
+         );
+      }
+    });
+
+    // Listen for listening state changes to update badge
+    _listeningStateSubscription = _transcriptionService.listeningStateStream.listen((isListening) {
+      if (mounted) {
+        setState(() {
+          // Rebuild to show/hide REC badge
+        });
+      }
+    });
   }
 
   @override
@@ -51,6 +74,10 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     _service.stopSimulation();
     _transcriptionService.dispose();
     _sessionTimer?.cancel();
+    _retryTimer?.cancel();
+    _dataSubscription?.cancel();
+    _audioErrorSubscription?.cancel();
+    _listeningStateSubscription?.cancel();
     _notesController.dispose();
     super.dispose();
   }
@@ -59,6 +86,8 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     if (_isSessionActive) {
       // Logic when turning OFF
       _sessionTimer?.cancel();
+      _retryTimer?.cancel();
+      _dataSubscription?.cancel();
       _service.stopSimulation();
       await _transcriptionService.stopListening();
       
@@ -73,8 +102,10 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         _sessionDuration = Duration.zero;
         _transcription = ''; // Clear previous transcript
         _aiInsight = null;
+        _sessionTimelineData.clear(); // Clear old data
       });
 
+      // Timer purely for UI display of duration
       _sessionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (mounted) {
           setState(() {
@@ -83,9 +114,57 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         }
       });
       
+      // Separate subscription for data collection
+      _dataSubscription = _service.dataStream.listen((data) {
+        if (data != null) {
+          _sessionTimelineData.add({
+            'timestamp': _formatDuration(_sessionDuration),
+            'heartRate': data.heartRate,
+            'spo2': data.spo2,
+            'isStressed': data.isStressed,
+          });
+          
+          // If we get data, we are connected, so stop rapid retry
+          if (_retryTimer != null && _retryTimer!.isActive) {
+            _retryTimer?.cancel();
+            _retryTimer = null;
+          }
+        } else {
+             // If data is null (Offline), ensure we are retrying rapidly
+             _startRapidRetry();
+        }
+      });
+      
+      // Initial check - if offline, start rapid retry
+      if (_service.currentStatus == BlynkStatus.offline) {
+         _startRapidRetry();
+      }
+      
       _service.startSimulation();
       await _transcriptionService.startListening();
     }
+  }
+
+  void _startRapidRetry() {
+    if (_retryTimer != null && _retryTimer!.isActive) return;
+    
+    print('[LiveView] Starting rapid retry sequence...');
+    _retryTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+       if (!_isSessionActive) {
+         timer.cancel();
+         return;
+       }
+       // Stop retrying if we are online now
+       if (_service.currentStatus != BlynkStatus.offline && _service.currentStatus != BlynkStatus.loading) {
+         print('[LiveView] Connection established. Stopping rapid retry.');
+         timer.cancel();
+         _retryTimer = null;
+         return;
+       }
+       
+       print('[LiveView] Rapid Retry calling forceFetchStatus...');
+       _service.forceFetchStatus();
+    });
   }
 
   void _showSessionSummary() {
@@ -95,11 +174,12 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       builder: (ctx) => _SessionSummaryDialog(
         transcript: _transcription,
         duration: _formatDuration(_sessionDuration),
+        timelineData: List.from(_sessionTimelineData), // Pass copy of data
         // Placeholder stats - in real app, calculate these from session data
         avgStats: {
-          'avgHr': 75,
-          'avgSpo2': 98,
-          'stressEvents': 2,
+          'avgHr': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['heartRate'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
+          'avgSpo2': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['spo2'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
+          'stressEvents': _sessionTimelineData.where((e) => e['isStressed'] == true).length,
         },
       ),
     );
@@ -767,11 +847,13 @@ class _SessionSummaryDialog extends StatefulWidget {
   final String transcript;
   final String duration;
   final Map<String, dynamic> avgStats;
+  final List<Map<String, dynamic>> timelineData;
 
   const _SessionSummaryDialog({
     required this.transcript,
     required this.duration,
     required this.avgStats,
+    required this.timelineData,
   });
 
   @override
@@ -789,6 +871,7 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
       widget.transcript,
       widget.duration,
       widget.avgStats,
+      widget.timelineData,
     );
     if (mounted) {
       setState(() {
