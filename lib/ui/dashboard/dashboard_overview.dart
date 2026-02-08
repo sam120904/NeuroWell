@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
 import 'widgets/add_patient_dialog.dart';
 import '../monitoring/live_view.dart';
+import '../../data/services/blynk_service.dart';
 
 class DashboardOverview extends StatefulWidget {
   const DashboardOverview({super.key});
@@ -14,9 +15,8 @@ class DashboardOverview extends StatefulWidget {
 
 class _DashboardOverviewState extends State<DashboardOverview> {
   String? _selectedPatientId;
-  String _deviceStatus = 'Disconnected'; // 'Disconnected', 'Connecting', 'Connected'
   final TextEditingController _notesController = TextEditingController();
-  bool _isConnecting = false;
+  final BlynkService _blynkService = BlynkService();
 
   @override
   void dispose() {
@@ -31,31 +31,18 @@ class _DashboardOverviewState extends State<DashboardOverview> {
     );
   }
 
-  void _toggleDeviceConnection() async {
-    if(_deviceStatus == 'Connected') {
-      setState(() => _deviceStatus = 'Disconnected');
-      return;
-    }
-
-    setState(() {
-      _isConnecting = true;
-      _deviceStatus = 'Connecting';
-    });
-
-    // Simulate connection delay
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (mounted) {
-      setState(() {
-        _isConnecting = false;
-        _deviceStatus = 'Connected';
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _blynkService.startPolling();
   }
 
+  // Removed _toggleDeviceConnection as it is now automatic via BlynkService
+
   void _startSession() {
-    if (_selectedPatientId != null && _deviceStatus == 'Connected') {
-       // Navigate to Live View. 
+    // Pass the selected patient ID and notes to the live view if needed
+    // For now just navigating
+    if (_selectedPatientId != null) {
        Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const LiveMonitoringView()),
@@ -65,62 +52,71 @@ class _DashboardOverviewState extends State<DashboardOverview> {
 
   @override
   Widget build(BuildContext context) {
-    // Determine if "Start" is enabled
-    final isReady = _selectedPatientId != null && _deviceStatus == 'Connected';
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= 1024;
-    final isTablet = screenWidth >= 768 && screenWidth < 1024;
+    return StreamBuilder<BlynkStatus>(
+      stream: _blynkService.statusStream,
+      initialData: _blynkService.currentStatus,
+      builder: (context, snapshot) {
+        final status = snapshot.data ?? BlynkStatus.offline;
+        final isDeviceConnected = status != BlynkStatus.offline && status != BlynkStatus.loading;
+        
+        // Determine if "Start" is enabled
+        final isReady = _selectedPatientId != null && isDeviceConnected;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isDesktop = screenWidth >= 1024;
+        final isTablet = screenWidth >= 768 && screenWidth < 1024;
 
-    return Padding(
-      padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
-      child: SingleChildScrollView( 
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'New Session Setup',
-              style: GoogleFonts.inter(
-                fontSize: isDesktop ? 28 : 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-            Text(
-              'Configure patient details and device connection before beginning therapy.',
-              style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 32),
+        return Padding(
+          padding: EdgeInsets.all(isDesktop ? 24.0 : 16.0),
+          child: SingleChildScrollView( 
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'New Session Setup',
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 28 : 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+                Text(
+                  'Configure patient details and device connection before beginning therapy.',
+                  style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 32),
 
-            // Responsive layout: Row on desktop, Column on tablet/mobile
-            if (isDesktop)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Left Column: Patient & Notes
-                  Expanded(
-                    flex: 3,
-                    child: _buildLeftColumn(),
+                // Responsive layout: Row on desktop, Column on tablet/mobile
+                if (isDesktop)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column: Patient & Notes
+                      Expanded(
+                        flex: 3,
+                        child: _buildLeftColumn(),
+                      ),
+                      const SizedBox(width: 24),
+                      // Right Column: Device Status & Start
+                      Expanded(
+                        flex: 2,
+                        child: _buildRightColumn(isReady, status),
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLeftColumn(),
+                      const SizedBox(height: 24),
+                      _buildRightColumn(isReady, status),
+                    ],
                   ),
-                  const SizedBox(width: 24),
-                  // Right Column: Device Status & Start
-                  Expanded(
-                    flex: 2,
-                    child: _buildRightColumn(isReady),
-                  ),
-                ],
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLeftColumn(),
-                  const SizedBox(height: 24),
-                  _buildRightColumn(isReady),
-                ],
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      }
     );
   }
 
@@ -273,7 +269,24 @@ class _DashboardOverviewState extends State<DashboardOverview> {
     );
   }
 
-  Widget _buildRightColumn(bool isReady) {
+  Widget _buildRightColumn(bool isReady, BlynkStatus status) {
+    bool isConnected = status != BlynkStatus.offline && status != BlynkStatus.loading;
+    bool isLoading = status == BlynkStatus.loading;
+    
+    String statusText = 'DISCONNECTED';
+    Color statusColor = Colors.red;
+    IconData statusIcon = Icons.error_outline;
+
+    if (isLoading) {
+      statusText = 'CONNECTING...';
+      statusColor = Colors.orange;
+      statusIcon = Icons.sync;
+    } else if (isConnected) {
+      statusText = 'CONNECTED';
+      statusColor = Colors.green;
+      statusIcon = Icons.check_circle;
+    }
+    
     return Column(
       children: [
         // 2. Device Status
@@ -282,7 +295,7 @@ class _DashboardOverviewState extends State<DashboardOverview> {
           title: '2. Device Status',
           action: IconButton(
             icon: const Icon(Icons.refresh, color: Colors.grey),
-            onPressed: _deviceStatus == 'Connecting' ? null : _toggleDeviceConnection,
+            onPressed: null, // Connection is automatic
           ),
           child: Column(
             children: [
@@ -316,37 +329,29 @@ class _DashboardOverviewState extends State<DashboardOverview> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: _deviceStatus == 'Connected' 
-                            ? Colors.green.withOpacity(0.1) 
-                            : (_deviceStatus == 'Connecting' ? Colors.orange.withOpacity(0.1) : Colors.red.withOpacity(0.1)),
+                        color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: _deviceStatus == 'Connected' 
-                            ? Colors.green.withOpacity(0.3) 
-                            : (_deviceStatus == 'Connecting' ? Colors.orange.withOpacity(0.3) : Colors.red.withOpacity(0.3)),
+                          color: statusColor.withOpacity(0.3),
                         ),
                       ),
                       child: Row(
                         children: [
-                          if (_deviceStatus == 'Connecting')
+                          if (isLoading)
                             const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
                           else 
                             Icon(
-                              _deviceStatus == 'Connected' ? Icons.check_circle : Icons.error_outline,
+                              statusIcon,
                               size: 14,
-                              color: _deviceStatus == 'Connected' 
-                                ? Colors.green 
-                                : (_deviceStatus == 'Connecting' ? Colors.orange : Colors.red),
+                              color: statusColor,
                             ),
                           const SizedBox(width: 6),
                           Text(
-                            _deviceStatus.toUpperCase(),
+                            statusText,
                             style: TextStyle(
                               fontSize: 10, 
                               fontWeight: FontWeight.bold,
-                              color: _deviceStatus == 'Connected' 
-                                ? Colors.green 
-                                : (_deviceStatus == 'Connecting' ? Colors.orange : Colors.red),
+                              color: statusColor,
                             ),
                           ),
                         ],
@@ -359,13 +364,14 @@ class _DashboardOverviewState extends State<DashboardOverview> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: _deviceStatus == 'Connecting' ? null : _toggleDeviceConnection,
+                  onPressed: null, // Connection is automatic
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: BorderSide(color: Colors.grey[300]!),
                     foregroundColor: AppColors.primary,
+                    disabledForegroundColor: Colors.grey,
                   ),
-                  child: Text(_deviceStatus == 'Connected' ? 'Disconnect Device' : 'Check Connection'),
+                  child: const Text('Connection is Automatic'),
                 ),
               ),
             ],

@@ -26,6 +26,7 @@ class BiosensorService {
   Stream<BiosensorData?> get dataStream => _controller.stream;
   Stream<BlynkStatus> get statusStream => _statusController.stream;
   Stream<String> get logStream => _blynkService.logStream; // Expose logs
+  String get lastError => _blynkService.lastError;
   BlynkStatus get currentStatus => _currentStatus;
 
   void startSimulation() {

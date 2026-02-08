@@ -63,4 +63,28 @@ class GeminiService {
     ''';
     return generateInsight(prompt);
   }
+  Future<String> generateSessionReport(String transcript, String duration, Map<String, dynamic> avgStats) async {
+    final prompt = '''
+      You are a clinical assistant generating a post-session report for a therapy session.
+      
+      Session Duration: $duration
+      
+      Average Physiological Stats:
+      - Heart Rate: ${avgStats['avgHr']} bpm
+      - SpO2: ${avgStats['avgSpo2']}%
+      - Stress Events (High HR/Low SpO2): ${avgStats['stressEvents']}
+      
+      Full Session Transcript:
+      "$transcript"
+      
+      Please provide a comprehensive report including:
+      1. **Patient State Summary**: Based on physiological data (stress levels).
+      2. **Key Topics Discussed**: Briefly summarize the main themes from the transcript.
+      3. **Clinical Observations**: Correlate any stress markers with specific topics if possible (infer from context).
+      4. **Recommendations**: Suggested next steps or focus areas for the next session.
+      
+      Format with clear Markdown headings.
+    ''';
+    return generateInsight(prompt);
+  }
 }

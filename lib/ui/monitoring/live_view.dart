@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants.dart';
@@ -8,6 +9,7 @@ import '../../data/services/blynk_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/models/biosensor_data_model.dart';
+import '../../data/services/transcription_service.dart';
 
 class LiveMonitoringView extends StatefulWidget {
   const LiveMonitoringView({super.key});
@@ -18,32 +20,96 @@ class LiveMonitoringView extends StatefulWidget {
 
 class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   final BiosensorService _service = BiosensorService();
+  final TranscriptionService _transcriptionService = TranscriptionService();
   final TextEditingController _notesController = TextEditingController();
+  
   String? _aiInsight;
   bool _isGeneratingInsight = false;
   bool _isSessionActive = false;
+  String _transcription = '';
+  
+  // Timer State
+  Timer? _sessionTimer;
+  Duration _sessionDuration = Duration.zero;
   
   @override
   void initState() {
     super.initState();
+    print('[LiveView] initState');
+    _transcriptionService.transcriptionStream.listen((text) {
+      if (mounted) {
+        setState(() {
+          _transcription = text;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    print('[LiveView] dispose');
     _service.stopSimulation();
+    _transcriptionService.dispose();
+    _sessionTimer?.cancel();
     _notesController.dispose();
     super.dispose();
   }
 
-  void _toggleSession() {
-    setState(() {
-      _isSessionActive = !_isSessionActive;
-      if (_isSessionActive) {
-        _service.startSimulation();
-      } else {
-        _service.stopSimulation();
+  void _toggleSession() async {
+    if (_isSessionActive) {
+      // Logic when turning OFF
+      _sessionTimer?.cancel();
+      _service.stopSimulation();
+      await _transcriptionService.stopListening();
+      
+      if (mounted) {
+        setState(() => _isSessionActive = false);
+        _showSessionSummary();
       }
-    });
+    } else {
+      // Logic when turning ON
+      setState(() {
+        _isSessionActive = true;
+        _sessionDuration = Duration.zero;
+        _transcription = ''; // Clear previous transcript
+        _aiInsight = null;
+      });
+
+      _sessionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (mounted) {
+          setState(() {
+            _sessionDuration += const Duration(seconds: 1);
+          });
+        }
+      });
+      
+      _service.startSimulation();
+      await _transcriptionService.startListening();
+    }
+  }
+
+  void _showSessionSummary() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _SessionSummaryDialog(
+        transcript: _transcription,
+        duration: _formatDuration(_sessionDuration),
+        // Placeholder stats - in real app, calculate these from session data
+        avgStats: {
+          'avgHr': 75,
+          'avgSpo2': 98,
+          'stressEvents': 2,
+        },
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 
   @override
@@ -112,6 +178,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               );
             }
 
+            // Treat loading as connected to avoid flashing red "Offline" banner during transitions
             final isConnected = status != BlynkStatus.offline;
             
             final hr = data?.heartRate.toString() ?? '--';
@@ -151,9 +218,26 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                                   'ESP32 disconnected. Check debug logs below.',
                                   style: GoogleFonts.inter(fontSize: 12, color: Colors.red[600]),
                                 ),
+                                if (_service.lastError.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      'Debug: ${_service.lastError}',
+                                      style: GoogleFonts.robotoMono(fontSize: 10, color: Colors.red[800], fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
+                          TextButton(
+                            onPressed: () {
+                              _service.stopSimulation();
+                              Future.delayed(const Duration(milliseconds: 500), () {
+                                _service.startSimulation();
+                              });
+                            },
+                            child: Text('RETRY', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.red[800])),
+                          )
                         ],
                       ),
                     ),
@@ -206,6 +290,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
             children: [
               _stressScoreCard(context),
               const SizedBox(height: 24),
+              // Use Expanded here for desktop sidebar to fill space
               Expanded(child: _aiInsightsCard(context)),
             ],
           ),
@@ -261,10 +346,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
           const SizedBox(height: 24),
 
           // AI Insights Card
-          SizedBox(
-            height: 350,
-            child: _aiInsightsCard(context),
-          ),
+          _aiInsightsCard(context),
         ],
       ),
     );
@@ -406,27 +488,22 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               children: [
                 Text('SESSION TIMER',
                     style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-                Text('00:00',
+                Text(
+                    _formatDuration(_sessionDuration),
                     style: GoogleFonts.robotoMono(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).textTheme.bodyLarge?.color)),
               ],
             ),
             const SizedBox(width: 24),
+            // Replaced multiple stop buttons with a single "End Session"
             TextButton.icon(
               onPressed: _toggleSession,
-              icon: const Icon(Icons.stop, color: Colors.red),
-              label: const Text('STOP SESSION', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              icon: const Icon(Icons.stop_circle_outlined, color: Colors.red),
+              label: const Text('END SESSION', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               style: TextButton.styleFrom(
                 backgroundColor: Colors.red.withOpacity(0.1),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-            ),
-            OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: BorderSide(color: Colors.red.withOpacity(0.3)),
-              ),
-              child: const Text('END SESSION'),
             ),
           ],
         ),
@@ -522,6 +599,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // Allow it to shrink
         children: [
           Container(
             padding: const EdgeInsets.all(12),
@@ -530,22 +608,62 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               children: [
                 const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
                 const SizedBox(width: 12),
-                Text('AI Clinical Insights', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Text(
+                    'AI Clinical Insights', 
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold)
+                  ),
+                ),
+                if (_transcriptionService.isListening)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                         const Icon(Icons.mic, color: Colors.red, size: 14),
+                         const SizedBox(width: 4),
+                         Text('REC', style: GoogleFonts.inter(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10)),
+                      ],
+                    ),
+                  )
               ],
             ),
           ),
           const SizedBox(height: 16),
+          // Transcription View
+          Container(
+             height: 80,
+             width: double.infinity,
+             padding: const EdgeInsets.all(8),
+             margin: const EdgeInsets.only(bottom: 12),
+             decoration: BoxDecoration(
+               color: Colors.grey[50], 
+               borderRadius: BorderRadius.circular(8),
+               border: Border.all(color: Colors.grey[200]!)
+             ),
+             child: SingleChildScrollView(
+               child: Text(
+                 _transcription.isEmpty ? 'Waiting for speech...' : _transcription,
+                 style: GoogleFonts.inter(color: Colors.grey[700], fontSize: 12),
+               ),
+             ),
+          ),
           TextField(
             controller: _notesController,
-            maxLines: 3,
+            maxLines: 2, 
             decoration: InputDecoration(
-              hintText: 'Enter clinical observations (e.g., "Patient appears anxious during discussion of work")...',
+              hintText: 'Enter clinical observations...',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               filled: true,
               fillColor: Colors.grey[50],
+              contentPadding: const EdgeInsets.all(12),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -561,35 +679,35 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue[50]?.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.1)),
-              ),
-              child: SingleChildScrollView(
-                child: _aiInsight != null
-                    ? Text(
-                        _aiInsight!,
-                        style: GoogleFonts.inter(fontSize: 14, height: 1.5, color: Colors.black87),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.lightbulb_outline, size: 32, color: AppColors.primary.withOpacity(0.3)),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Enter notes and click generate to get AI-powered insights based on live sensor data.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-              ),
+          const SizedBox(height: 12),
+          // Flexible container for insights
+          Container(
+            height: 200, // Fixed height for insights to prevent overflow
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue[50]?.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withOpacity(0.1)),
+            ),
+            child: SingleChildScrollView(
+              child: _aiInsight != null
+                  ? Text(
+                      _aiInsight!,
+                      style: GoogleFonts.inter(fontSize: 14, height: 1.5, color: Colors.black87),
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lightbulb_outline, size: 32, color: AppColors.primary.withOpacity(0.3)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Enter notes and click generate to get AI-powered insights based on live sensor data.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -600,14 +718,10 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   void _generateInsight() async {
     setState(() => _isGeneratingInsight = true);
     
-    // In a real app, you'd get the latest value from the stream or service
-    // For now, we'll grab a snapshot from the service's current state if possible, 
-    // or just listen once.
     final sensorData = await _service.dataStream.first; 
     
     if (!mounted) return;
 
-    // Can't generate insight when offline (no data)
     if (sensorData == null) {
       setState(() {
         _aiInsight = 'Cannot generate insights while hardware is offline.';
@@ -617,18 +731,170 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     }
 
     final geminiService = Provider.of<GeminiService>(context, listen: false);
-    final insight = await geminiService.analyzeSession({
-      'heartRate': sensorData.heartRate,
-      'spo2': sensorData.spo2,
-      'gsr': sensorData.gsr,
-      'isStressed': sensorData.isStressed,
-    }, _notesController.text);
+    
+    // Combine notes with transcription
+    String contextText = _notesController.text;
+    if (_transcription.isNotEmpty) {
+      contextText += '\n\n[Live Session Transcript]:\n$_transcription';
+    }
 
+    try {
+      final insight = await geminiService.analyzeSession({
+        'heartRate': sensorData.heartRate,
+        'spo2': sensorData.spo2,
+        'gsr': sensorData.gsr,
+        'isStressed': sensorData.isStressed,
+      }, contextText);
+
+      if (mounted) {
+        setState(() {
+          _aiInsight = insight;
+          _isGeneratingInsight = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _aiInsight = 'Error generating insight: $e';
+          _isGeneratingInsight = false;
+        });
+      }
+    }
+  }
+}
+
+class _SessionSummaryDialog extends StatefulWidget {
+  final String transcript;
+  final String duration;
+  final Map<String, dynamic> avgStats;
+
+  const _SessionSummaryDialog({
+    required this.transcript,
+    required this.duration,
+    required this.avgStats,
+  });
+
+  @override
+  State<_SessionSummaryDialog> createState() => _SessionSummaryDialogState();
+}
+
+class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
+  bool _isLoading = false;
+  String? _report;
+
+  void _generateReport() async {
+    setState(() => _isLoading = true);
+    final service = Provider.of<GeminiService>(context, listen: false);
+    final report = await service.generateSessionReport(
+      widget.transcript,
+      widget.duration,
+      widget.avgStats,
+    );
     if (mounted) {
       setState(() {
-        _aiInsight = insight;
-        _isGeneratingInsight = false;
+        _report = report;
+        _isLoading = false;
       });
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: Colors.white,
+      child: Container(
+        width: 600,
+        height: 600, // Fixed height for dialog
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Session Complete', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text('Session Duration: ${widget.duration}', style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600])),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                 _statItem('Avg Heart Rate', '${widget.avgStats['avgHr']} BPM', Icons.favorite, Colors.red),
+                 _statItem('Avg SpO2', '${widget.avgStats['avgSpo2']}%', Icons.water_drop, Colors.blue),
+              ],
+            ),
+            const SizedBox(height: 32),
+            const Divider(),
+            const SizedBox(height: 16),
+            Text('Transcript', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Container(
+              height: 100,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50], 
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!)
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  widget.transcript.isEmpty ? 'No speech detected.' : widget.transcript,
+                  style: GoogleFonts.inter(color: Colors.grey[700]),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _generateReport,
+                icon: _isLoading 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                  : const Icon(Icons.description),
+                label: Text(_isLoading ? 'Generating Report...' : 'Generate Detailed Medical Report'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ),
+            if (_report != null)
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Text(_report!, style: GoogleFonts.inter(fontSize: 12)),
+                  ),
+                ),
+              )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        const SizedBox(height: 8),
+        Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(label, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+      ],
+    );
   }
 }
