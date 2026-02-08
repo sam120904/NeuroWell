@@ -11,51 +11,20 @@ class TranscriptionService {
 
   Stream<String> get transcriptionStream => _transcriptionController.stream;
   bool get isListening => _isListening;
-  bool get isAvailable => _speechToText.isAvailable;
-  
-  // Expose error stream
-  final _errorController = StreamController<String>.broadcast();
-  Stream<String> get errorStream => _errorController.stream;
-
-  // Expose listening state
-  final _listeningStateController = StreamController<bool>.broadcast();
-  Stream<bool> get listeningStateStream => _listeningStateController.stream;
 
   Future<bool> init() async {
     try {
-      // On web, permission is handled by browser on initialize/listen
-      if (!kIsWeb) {
-        var status = await Permission.microphone.request();
-        if (status != PermissionStatus.granted) {
-          debugPrint('[TranscriptionService] Microphone permission denied');
-          _errorController.add('Microphone permission denied');
-          return false;
-        }
+      var status = await Permission.microphone.request();
+      if (status != PermissionStatus.granted) {
+        debugPrint('[TranscriptionService] Microphone permission denied');
+        return false;
       }
 
       bool available = await _speechToText.initialize(
-        onError: (error) {
-          debugPrint('[TranscriptionService] Error: $error');
-          _errorController.add(error.errorMsg);
-          _isListening = false;
-          _listeningStateController.add(false);
-        },
-        onStatus: (status) {
-          debugPrint('[TranscriptionService] Status: $status');
-          bool listening = status == 'listening';
-          if (_isListening != listening) {
-             _isListening = listening;
-             _listeningStateController.add(listening);
-          }
-          if (status == 'done' || status == 'notListening') {
-             _isListening = false;
-             _listeningStateController.add(false);
-          }
-        },
+        onError: (error) => debugPrint('[TranscriptionService] Error: $error'),
+        onStatus: (status) => debugPrint('[TranscriptionService] Status: $status'),
       );
-      
-      // ... (rest of init)
-      
+
       if (available) {
         var systemLocale = await _speechToText.systemLocale();
         _currentLocaleId = systemLocale?.localeId ?? '';
@@ -64,37 +33,37 @@ class TranscriptionService {
       return available;
     } catch (e) {
       debugPrint('[TranscriptionService] Init error: $e');
-      _errorController.add('Init error: $e');
       return false;
     }
   }
 
   Future<void> startListening() async {
-    // ... (rest of startListening)
+    if (!_speechToText.isAvailable) {
+      bool initialized = await init();
+      if (!initialized) return;
+    }
+
     if (!_isListening) {
+      _isListening = true;
       try {
-        await _speechToText.listen(
-          // ... options
-          onResult: (result) {
-            if (result.recognizedWords.isNotEmpty) {
-              _transcriptionController.add(result.recognizedWords);
-            }
-          },
-          localeId: _currentLocaleId,
-          listenOptions: SpeechListenOptions(
-            partialResults: true,
-            cancelOnError: false,
-            listenMode: ListenMode.dictation,
-          ),
-        );
-        _isListening = true;
-        _listeningStateController.add(true);
-        debugPrint('[TranscriptionService] Listening started');
+      await _speechToText.listen(
+        onResult: (result) {
+          if (result.finalResult || result.recognizedWords.isNotEmpty) {
+            // debugPrint('[Transcription] Result: ${result.recognizedWords} (Final: ${result.finalResult})');
+            _transcriptionController.add(result.recognizedWords);
+          }
+        },
+        localeId: _currentLocaleId,
+        listenOptions: SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: false,
+          listenMode: ListenMode.dictation,
+        ),
+      );
+      debugPrint('[TranscriptionService] Listening started');
       } catch (e) {
          debugPrint('[TranscriptionService] Start listening error: $e');
-         _errorController.add('Start listening failed: $e');
          _isListening = false;
-         _listeningStateController.add(false);
       }
     }
   }
@@ -103,14 +72,10 @@ class TranscriptionService {
     if (_isListening) {
       await _speechToText.stop();
       _isListening = false;
-      _listeningStateController.add(false);
     }
   }
 
   void dispose() {
     _transcriptionController.close();
-    _errorController.close();
-    _listeningStateController.close();
   }
 }
-

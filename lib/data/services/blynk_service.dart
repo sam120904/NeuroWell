@@ -68,16 +68,10 @@ class BlynkService {
     // Initial fetch
     _fetchStatus();
     
-  // Poll every 3 seconds to avoid rate limiting (Blynk/CORS)
+    // Poll every 3 seconds to avoid rate limiting (Blynk/CORS)
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _fetchStatus();
     });
-  }
-
-  /// Force an immediate status check (bypass timer)
-  Future<void> forceFetchStatus() async {
-    _log('forceFetchStatus called');
-    await _fetchStatus();
   }
 
   /// Check if IoT device hardware is connected
