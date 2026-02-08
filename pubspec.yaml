@@ -48,6 +48,8 @@ dependencies:
   speech_to_text: ^7.0.0
   permission_handler: ^11.3.1
 
+  http: any
+  web: ^1.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

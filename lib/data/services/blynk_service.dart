@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -11,7 +10,8 @@ class BlynkService {
   BlynkService._internal();
 
   final _statusController = StreamController<BlynkStatus>.broadcast();
-  final _logController = StreamController<String>.broadcast(); // Debug log stream
+  final _logController =
+      StreamController<String>.broadcast(); // Debug log stream
   Timer? _pollTimer;
   BlynkStatus _lastStatus = BlynkStatus.loading;
   int _consecutiveFailures = 0;
@@ -20,7 +20,7 @@ class BlynkService {
   /// Stream of Blynk connection status
   Stream<BlynkStatus> get statusStream => _statusController.stream;
   Stream<String> get logStream => _logController.stream;
-  
+
   /// Current status
   BlynkStatus get currentStatus => _lastStatus;
   String get lastError => _lastError;
@@ -34,13 +34,16 @@ class BlynkService {
     }
     return blynkUrl;
   }
-  
+
   void _log(String message) {
-    final timestamp = DateTime.now().toIso8601String().substring(11, 23); // HH:mm:ss.mmm
-    print('[BlynkService $timestamp] $message');
+    final timestamp = DateTime.now().toIso8601String().substring(
+      11,
+      23,
+    ); // HH:mm:ss.mmm
+    debugPrint('[BlynkService $timestamp] $message');
     _logController.add('$timestamp: $message');
   }
-  
+
   int _pollSubscribers = 0; // Reference count for active listeners
 
   /// Auth token from .env
@@ -50,24 +53,24 @@ class BlynkService {
   void startPolling() {
     _pollSubscribers++;
     _log('startPolling called. Subscribers: $_pollSubscribers');
-    
+
     // If already polling, just return (don't restart timer)
     if (_pollTimer != null) {
       // Ensure we emit the *current* status immediately to the new subscriber
       // so they don't see "loading" or nothing.
       if (_lastStatus != BlynkStatus.loading) {
-         _statusController.add(_lastStatus);
+        _statusController.add(_lastStatus);
       }
-      return; 
+      return;
     }
-    
+
     // Emit initial loading status only on fresh start
     _statusController.add(BlynkStatus.loading);
     _lastError = '';
-    
+
     // Initial fetch
     _fetchStatus();
-    
+
     // Poll every 3 seconds to avoid rate limiting (Blynk/CORS)
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _fetchStatus();
@@ -78,21 +81,24 @@ class BlynkService {
   Future<bool> _isHardwareConnected() async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final uri = Uri.parse('$_baseUrl/isHardwareConnected?token=$_authToken&_t=$timestamp');
+      final uri = Uri.parse(
+        '$_baseUrl/isHardwareConnected?token=$_authToken&_t=$timestamp',
+      );
       // _log('Checking hardware: $uri'); // excessive log
-      
-      final response = await http.get(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
-      
+
+      final response = await http
+          .get(uri, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 5));
+
       if (response.statusCode == 200) {
         final body = response.body.toLowerCase().trim();
         final isOnline = body == 'true';
         if (!isOnline) _log('Hardware check returned FALSE (Body: $body)');
         return isOnline;
       } else {
-        _log('Error checking hardware: ${response.statusCode} - ${response.body}');
+        _log(
+          'Error checking hardware: ${response.statusCode} - ${response.body}',
+        );
         return false;
       }
     } catch (e) {
@@ -101,22 +107,22 @@ class BlynkService {
     }
   }
 
-
   /// Get V1 (Stress Mode) status
   Future<bool> _isStressModeEnabled() async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final url = Uri.parse('$_baseUrl/get?token=$_authToken&pin=D1&_t=$timestamp');
-      
-      final response = await http.get(
-        url,
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
+      final url = Uri.parse(
+        '$_baseUrl/get?token=$_authToken&pin=D1&_t=$timestamp',
+      );
+
+      final response = await http
+          .get(url, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final body = response.body.trim();
         if (body.startsWith('[') && body.endsWith(']')) {
-           return body.contains('1') || body.contains('true');
+          return body.contains('1') || body.contains('true');
         }
         return body == '1' || body == 'true' || body == '"1"';
       }
@@ -131,17 +137,18 @@ class BlynkService {
   Future<bool> _isDummyDataEnabled() async {
     try {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final url = Uri.parse('$_baseUrl/get?token=$_authToken&pin=D0&_t=$timestamp');
+      final url = Uri.parse(
+        '$_baseUrl/get?token=$_authToken&pin=D0&_t=$timestamp',
+      );
 
-      final response = await http.get(
-        url,
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
+      final response = await http
+          .get(url, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final body = response.body.trim();
         if (body.startsWith('[') && body.endsWith(']')) {
-           return body.contains('1') || body.contains('true');
+          return body.contains('1') || body.contains('true');
         }
         return body == '1' || body == 'true' || body == '"1"';
       }
@@ -174,25 +181,33 @@ class BlynkService {
       // 1. Check Hardware Connection
       // Relaxed Logic: If ANY check says "true" (meaning we got a valid response), trust that connection.
       // But we still prioritize isHardwareConnected for the "offline" state if all are false.
-      
+
       if (!isHardwareOnline) {
-        // If hardware says offline, BUT we got data from D0 or D1, it means the API is working 
+        // If hardware says offline, BUT we got data from D0 or D1, it means the API is working
         // and the device might just be reporting offline temporarily or wrongly.
         if (isStress || isNormal) {
-           _log('WARN: Hardware says offline, but Simulation pins are active. Marking ONLINE.');
-           // Do not return, continue to set status
+          _log(
+            'WARN: Hardware says offline, but Simulation pins are active. Marking ONLINE.',
+          );
+          // Do not return, continue to set status
         } else {
           _consecutiveFailures++;
           if (_consecutiveFailures >= 2) {
-             if (_lastStatus != BlynkStatus.offline) _log('Device is OFFLINE (Failures: $_consecutiveFailures)');
-             _updateStatus(BlynkStatus.offline);
+            if (_lastStatus != BlynkStatus.offline) {
+              _log('Device is OFFLINE (Failures: $_consecutiveFailures)');
+            }
+            _updateStatus(BlynkStatus.offline);
           }
           return;
         }
       }
-      
+
       // Reset failure count if successful
-      if (_consecutiveFailures > 0) _log('Device re-connected or check passed after $_consecutiveFailures failures');
+      if (_consecutiveFailures > 0) {
+        _log(
+          'Device re-connected or check passed after $_consecutiveFailures failures',
+        );
+      }
       _consecutiveFailures = 0;
       _lastError = ''; // Clear error
 
@@ -205,12 +220,11 @@ class BlynkService {
       // 3. Check Normal Simulation (D0)
       if (isNormal) {
         _updateStatus(BlynkStatus.simulationNormal);
-        return; 
+        return;
       }
 
       // 4. Device Online but D0/D1 OFF
       _updateStatus(BlynkStatus.onlineNoData);
-      
     } catch (e) {
       _log('Error during grouped fetch: $e');
       _lastError = 'Group Fetch Error: $e';
@@ -255,12 +269,16 @@ class BlynkService {
 enum BlynkStatus {
   /// Hardware is offline/disconnected
   offline,
+
   /// Hardware is online but dummy data is OFF (show zeros)
   onlineNoData,
+
   /// Simulation: Normal Data (D0 ON, 60-100 BPM)
   simulationNormal,
+
   /// Simulation: Stress Data (D1 ON, 100-140 BPM)
   simulationStress,
+
   /// Initial connecting state
   loading,
 }

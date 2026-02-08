@@ -19,19 +19,16 @@ class DashboardHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.withOpacity(0.2)),
+          bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         ),
       ),
       child: Row(
         children: [
           if (onMenuPressed != null) ...[
-            IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: onMenuPressed,
-            ),
+            IconButton(icon: const Icon(Icons.menu), onPressed: onMenuPressed),
             const SizedBox(width: 16),
           ],
-          
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -40,20 +37,20 @@ class DashboardHeader extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 if (subtitle != null)
                   Text(
                     subtitle!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.grey),
                   ),
               ],
             ),
           ),
-          
+
           // Search Bar (Hidden on small mobile)
           if (MediaQuery.of(context).size.width > 600)
             Container(
@@ -62,7 +59,7 @@ class DashboardHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Theme.of(context).scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
               ),
               child: const TextField(
                 decoration: InputDecoration(
@@ -73,7 +70,7 @@ class DashboardHeader extends StatelessWidget {
               ),
             ),
           const SizedBox(width: 16),
-          
+
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () {},

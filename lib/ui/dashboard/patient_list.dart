@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import '../../core/constants.dart';
 import '../../data/models/patient_model.dart';
 import '../../data/services/firestore_service.dart';
@@ -34,16 +33,10 @@ class _PatientListState extends State<PatientList> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Left Side: Patient List
-                Expanded(
-                  flex: 2,
-                  child: _buildPatientListSection(context),
-                ),
+                Expanded(flex: 2, child: _buildPatientListSection(context)),
                 const SizedBox(width: 16),
                 // Right Side: Patient Details Panel
-                Expanded(
-                  flex: 1,
-                  child: _buildDetailsPanel(context),
-                ),
+                Expanded(flex: 1, child: _buildDetailsPanel(context)),
               ],
             )
           : SingleChildScrollView(
@@ -57,10 +50,7 @@ class _PatientListState extends State<PatientList> {
                   ),
                   const SizedBox(height: 16),
                   // Details Panel below
-                  SizedBox(
-                    height: 400,
-                    child: _buildDetailsPanel(context),
-                  ),
+                  SizedBox(height: 400, child: _buildDetailsPanel(context)),
                 ],
               ),
             ),
@@ -99,9 +89,12 @@ class _PatientListState extends State<PatientList> {
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ],
@@ -115,7 +108,7 @@ class _PatientListState extends State<PatientList> {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
@@ -123,25 +116,23 @@ class _PatientListState extends State<PatientList> {
                 stream: FirestoreService().getPatientsStream(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
-                    return Center(
-                        child: Text('Error: ${snapshot.error}'));
+                    return Center(child: Text('Error: ${snapshot.error}'));
                   }
 
-                  if (snapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Center(
-                        child: CircularProgressIndicator());
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
                   }
 
                   final patients = snapshot.data!.docs.map((doc) {
                     return Patient.fromMap(
-                        doc.id, doc.data() as Map<String, dynamic>);
+                      doc.id,
+                      doc.data() as Map<String, dynamic>,
+                    );
                   }).toList();
 
                   if (patients.isEmpty) {
                     return const Center(
-                      child: Text(
-                          'No patients found. Add one to get started.'),
+                      child: Text('No patients found. Add one to get started.'),
                     );
                   }
 
@@ -150,103 +141,123 @@ class _PatientListState extends State<PatientList> {
                     child: SingleChildScrollView(
                       child: DataTable(
                         showCheckboxColumn: false,
-                        headingRowColor:
-                            MaterialStateProperty.all(Colors.grey[50]),
+                        headingRowColor: WidgetStateProperty.all(
+                          Colors.grey[50],
+                        ),
                         columns: const [
                           DataColumn(
-                              label: Text('Name',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold))),
+                            label: Text(
+                              'Name',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
                           DataColumn(
-                              label: Text('ID',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold))),
+                            label: Text(
+                              'ID',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
                           DataColumn(
-                              label: Text('Condition',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold))),
+                            label: Text(
+                              'Condition',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
                           DataColumn(
-                              label: Text('Status',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold))),
+                            label: Text(
+                              'Status',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
                         ],
                         rows: patients.map((patient) {
-                          final isSelected =
-                              _selectedPatient?.id == patient.id;
+                          final isSelected = _selectedPatient?.id == patient.id;
                           return DataRow(
-                              selected: isSelected,
-                              onSelectChanged: (selected) {
-                                if (selected == true) {
-                                  setState(() {
-                                    _selectedPatient = patient;
-                                    _panelKey = ValueKey(patient.id);
-                                  });
-                                }
-                              },
-                              cells: [
-                                DataCell(
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: AppColors.primary
-                                            .withOpacity(0.1),
-                                        child: Text(
-                                          patient.name.isNotEmpty
-                                              ? patient.name[0]
-                                              : '?',
-                                          style: const TextStyle(
-                                              color: AppColors.primary,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12),
+                            selected: isSelected,
+                            onSelectChanged: (selected) {
+                              if (selected == true) {
+                                setState(() {
+                                  _selectedPatient = patient;
+                                  _panelKey = ValueKey(patient.id);
+                                });
+                              }
+                            },
+                            cells: [
+                              DataCell(
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: AppColors.primary
+                                          .withValues(alpha: 0.1),
+                                      child: Text(
+                                        patient.name.isNotEmpty
+                                            ? patient.name[0]
+                                            : '?',
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Text(patient.name,
-                                          style: TextStyle(
-                                            fontWeight: isSelected
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: isSelected
-                                                ? AppColors.primary
-                                                : Colors.black87,
-                                          )),
-                                    ],
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      patient.name,
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  '#${patient.id.length > 4 ? patient.id.substring(0, 4) : patient.id}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    '#${patient.id.length > 4 ? patient.id.substring(0, 4) : patient.id}',
+                              ),
+                              DataCell(
+                                Text(
+                                  patient.condition,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.green[100]!,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    patient.status,
                                     style: const TextStyle(
-                                        fontSize: 12, color: Colors.grey),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(patient.condition,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w500)),
-                                ),
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green[50],
-                                      borderRadius:
-                                          BorderRadius.circular(12),
-                                      border: Border.all(
-                                          color: Colors.green[100]!),
-                                    ),
-                                    child: Text(
-                                      patient.status,
-                                      style: const TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
                                     ),
                                   ),
                                 ),
-                              ]);
+                              ),
+                            ],
+                          );
                         }).toList(),
                       ),
                     ),
@@ -262,10 +273,7 @@ class _PatientListState extends State<PatientList> {
 
   Widget _buildDetailsPanel(BuildContext context) {
     return _selectedPatient != null
-        ? PatientDetailsPanel(
-            key: _panelKey,
-            patient: _selectedPatient!,
-          )
+        ? PatientDetailsPanel(key: _panelKey, patient: _selectedPatient!)
         : Container(
             decoration: BoxDecoration(
               color: Colors.grey[50],
@@ -276,8 +284,11 @@ class _PatientListState extends State<PatientList> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.touch_app_outlined,
-                      size: 48, color: Colors.grey[400]),
+                  Icon(
+                    Icons.touch_app_outlined,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Select a patient to view details',

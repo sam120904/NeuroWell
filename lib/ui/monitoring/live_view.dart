@@ -22,23 +22,24 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   final BiosensorService _service = BiosensorService();
   final TranscriptionService _transcriptionService = TranscriptionService();
   final TextEditingController _notesController = TextEditingController();
-  
+
   String? _aiInsight;
   bool _isGeneratingInsight = false;
   bool _isSessionActive = false;
   String _transcription = '';
-  
+
   // Timer State
   Timer? _sessionTimer;
   Timer? _insightTimer; // Auto-generate insights periodically
   StreamSubscription? _dataSubscription;
   Duration _sessionDuration = Duration.zero;
-  final List<Map<String, dynamic>> _sessionTimelineData = []; // Store session data points
-  
+  final List<Map<String, dynamic>> _sessionTimelineData =
+      []; // Store session data points
+
   @override
   void initState() {
     super.initState();
-    print('[LiveView] initState');
+    debugPrint('[LiveView] initState');
     _transcriptionService.transcriptionStream.listen((text) {
       if (mounted) {
         setState(() {
@@ -50,7 +51,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
 
   @override
   void dispose() {
-    print('[LiveView] dispose');
+    debugPrint('[LiveView] dispose');
     _service.stopSimulation();
     _transcriptionService.dispose();
     _sessionTimer?.cancel();
@@ -68,7 +69,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       _dataSubscription?.cancel();
       _service.stopSimulation();
       await _transcriptionService.stopListening();
-      
+
       if (mounted) {
         setState(() => _isSessionActive = false);
         _showSessionSummary();
@@ -91,7 +92,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
           });
         }
       });
-      
+
       // Separate subscription for data collection
       _dataSubscription = _service.dataStream.listen((data) {
         if (data != null) {
@@ -103,19 +104,19 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
           });
         }
       });
-      
+
       // Auto-generate insights every 15 seconds
       _insightTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
         if (mounted && _isSessionActive && !_isGeneratingInsight) {
           _autoGenerateInsight();
         }
       });
-      
+
       _service.startSimulation();
       // Transcription is now optional - controlled by toggle button
     }
   }
-  
+
   /// Toggle transcription recording on/off
   void _toggleRecording() async {
     if (_transcriptionService.isListening) {
@@ -136,9 +137,23 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         timelineData: List.from(_sessionTimelineData), // Pass copy of data
         // Placeholder stats - in real app, calculate these from session data
         avgStats: {
-          'avgHr': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['heartRate'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
-          'avgSpo2': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['spo2'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
-          'stressEvents': _sessionTimelineData.where((e) => e['isStressed'] == true).length,
+          'avgHr': _sessionTimelineData.isEmpty
+              ? 0
+              : (_sessionTimelineData
+                            .map((e) => e['heartRate'] as int)
+                            .reduce((a, b) => a + b) /
+                        _sessionTimelineData.length)
+                    .toStringAsFixed(0),
+          'avgSpo2': _sessionTimelineData.isEmpty
+              ? 0
+              : (_sessionTimelineData
+                            .map((e) => e['spo2'] as int)
+                            .reduce((a, b) => a + b) /
+                        _sessionTimelineData.length)
+                    .toStringAsFixed(0),
+          'stressEvents': _sessionTimelineData
+              .where((e) => e['isStressed'] == true)
+              .length,
         },
       ),
     );
@@ -162,11 +177,18 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.monitor_heart_outlined, size: 64, color: AppColors.primary),
+            Icon(
+              Icons.monitor_heart_outlined,
+              size: 64,
+              color: AppColors.primary,
+            ),
             const SizedBox(height: 24),
             Text(
               'Live Monitoring Stopped',
-              style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold),
+              style: GoogleFonts.inter(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -181,7 +203,10 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
                 textStyle: GoogleFonts.inter(fontWeight: FontWeight.bold),
               ),
             ),
@@ -210,7 +235,10 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                     const SizedBox(height: 16),
                     Text(
                       'Connecting to device...',
-                      style: GoogleFonts.inter(fontSize: 16, color: Colors.grey[600]),
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
@@ -219,7 +247,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
 
             // Treat loading as connected to avoid flashing red "Offline" banner during transitions
             final isConnected = status != BlynkStatus.offline;
-            
+
             final hr = data?.heartRate.toString() ?? '--';
             final spo2 = data?.spo2.toString() ?? '--';
             final gsr = data?.gsr.toStringAsFixed(1) ?? '--';
@@ -235,7 +263,10 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                     Container(
                       width: double.infinity,
                       margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red[50],
                         borderRadius: BorderRadius.circular(12),
@@ -243,7 +274,11 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.sensors_off, color: Colors.red[700], size: 24),
+                          Icon(
+                            Icons.sensors_off,
+                            color: Colors.red[700],
+                            size: 24,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -251,18 +286,28 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                               children: [
                                 Text(
                                   'Hardware Offline',
-                                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.red[700]),
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red[700],
+                                  ),
                                 ),
                                 Text(
                                   'ESP32 disconnected. Check debug logs below.',
-                                  style: GoogleFonts.inter(fontSize: 12, color: Colors.red[600]),
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: Colors.red[600],
+                                  ),
                                 ),
                                 if (_service.lastError.isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
                                       'Debug: ${_service.lastError}',
-                                      style: GoogleFonts.robotoMono(fontSize: 10, color: Colors.red[800], fontWeight: FontWeight.bold),
+                                      style: GoogleFonts.robotoMono(
+                                        fontSize: 10,
+                                        color: Colors.red[800],
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -271,33 +316,64 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                           TextButton(
                             onPressed: () {
                               _service.stopSimulation();
-                              Future.delayed(const Duration(milliseconds: 500), () {
-                                _service.startSimulation();
-                              });
+                              Future.delayed(
+                                const Duration(milliseconds: 500),
+                                () {
+                                  _service.startSimulation();
+                                },
+                              );
                             },
-                            child: Text('RETRY', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.red[800])),
-                          )
+                            child: Text(
+                              'RETRY',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red[800],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  
+
                   Expanded(
-                    child: isDesktop 
-                        ? _buildDesktopContent(context, isConnected, hr, spo2, gsr, isStressed)
-                        : _buildTabletMobileContent(context, isConnected, hr, spo2, gsr, isStressed, isTablet),
+                    child: isDesktop
+                        ? _buildDesktopContent(
+                            context,
+                            isConnected,
+                            hr,
+                            spo2,
+                            gsr,
+                            isStressed,
+                          )
+                        : _buildTabletMobileContent(
+                            context,
+                            isConnected,
+                            hr,
+                            spo2,
+                            gsr,
+                            isStressed,
+                            isTablet,
+                          ),
                   ),
-                  
+
                   const SizedBox(height: 16),
                 ],
               ),
             );
-          }
+          },
         );
-      }
+      },
     );
   }
 
-  Widget _buildDesktopContent(BuildContext context, bool hasData, String hr, String spo2, String gsr, bool isStressed) {
+  Widget _buildDesktopContent(
+    BuildContext context,
+    bool hasData,
+    String hr,
+    String spo2,
+    String gsr,
+    bool isStressed,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -308,11 +384,35 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               // 3 Sensor Cards: Heart Beat, SpO2, GSR
               Row(
                 children: [
-                  Expanded(child: TelemetryCard(title: 'Heart Rate', value: hr, unit: 'BPM', icon: Icons.favorite, color: isStressed ? Colors.orange : Colors.red)),
+                  Expanded(
+                    child: TelemetryCard(
+                      title: 'Heart Rate',
+                      value: hr,
+                      unit: 'BPM',
+                      icon: Icons.favorite,
+                      color: isStressed ? Colors.orange : Colors.red,
+                    ),
+                  ),
                   const SizedBox(width: 16),
-                  Expanded(child: TelemetryCard(title: 'SpO2', value: spo2, unit: '%', icon: Icons.water_drop, color: Colors.blue)),
+                  Expanded(
+                    child: TelemetryCard(
+                      title: 'SpO2',
+                      value: spo2,
+                      unit: '%',
+                      icon: Icons.water_drop,
+                      color: Colors.blue,
+                    ),
+                  ),
                   const SizedBox(width: 16),
-                  Expanded(child: TelemetryCard(title: 'GSR', value: gsr, unit: 'µS', icon: Icons.bolt, color: Colors.purple)),
+                  Expanded(
+                    child: TelemetryCard(
+                      title: 'GSR',
+                      value: gsr,
+                      unit: 'µS',
+                      icon: Icons.bolt,
+                      color: Colors.purple,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
@@ -338,7 +438,15 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     );
   }
 
-  Widget _buildTabletMobileContent(BuildContext context, bool hasData, String hr, String spo2, String gsr, bool isStressed, bool isTablet) {
+  Widget _buildTabletMobileContent(
+    BuildContext context,
+    bool hasData,
+    String hr,
+    String spo2,
+    String gsr,
+    bool isStressed,
+    bool isTablet,
+  ) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,33 +457,70 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               children: [
                 Row(
                   children: [
-                    Expanded(child: TelemetryCard(title: 'Heart Rate', value: hr, unit: 'BPM', icon: Icons.favorite, color: isStressed ? Colors.orange : Colors.red)),
+                    Expanded(
+                      child: TelemetryCard(
+                        title: 'Heart Rate',
+                        value: hr,
+                        unit: 'BPM',
+                        icon: Icons.favorite,
+                        color: isStressed ? Colors.orange : Colors.red,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: TelemetryCard(title: 'SpO2', value: spo2, unit: '%', icon: Icons.water_drop, color: Colors.blue)),
+                    Expanded(
+                      child: TelemetryCard(
+                        title: 'SpO2',
+                        value: spo2,
+                        unit: '%',
+                        icon: Icons.water_drop,
+                        color: Colors.blue,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                TelemetryCard(title: 'GSR', value: gsr, unit: 'µS', icon: Icons.bolt, color: Colors.purple),
+                TelemetryCard(
+                  title: 'GSR',
+                  value: gsr,
+                  unit: 'µS',
+                  icon: Icons.bolt,
+                  color: Colors.purple,
+                ),
               ],
             )
           else
             Column(
               children: [
-                TelemetryCard(title: 'Heart Rate', value: hr, unit: 'BPM', icon: Icons.favorite, color: isStressed ? Colors.orange : Colors.red),
+                TelemetryCard(
+                  title: 'Heart Rate',
+                  value: hr,
+                  unit: 'BPM',
+                  icon: Icons.favorite,
+                  color: isStressed ? Colors.orange : Colors.red,
+                ),
                 const SizedBox(height: 12),
-                TelemetryCard(title: 'SpO2', value: spo2, unit: '%', icon: Icons.water_drop, color: Colors.blue),
+                TelemetryCard(
+                  title: 'SpO2',
+                  value: spo2,
+                  unit: '%',
+                  icon: Icons.water_drop,
+                  color: Colors.blue,
+                ),
                 const SizedBox(height: 12),
-                TelemetryCard(title: 'GSR', value: gsr, unit: 'µS', icon: Icons.bolt, color: Colors.purple),
+                TelemetryCard(
+                  title: 'GSR',
+                  value: gsr,
+                  unit: 'µS',
+                  icon: Icons.bolt,
+                  color: Colors.purple,
+                ),
               ],
             ),
 
           const SizedBox(height: 24),
 
           // Chart
-          SizedBox(
-            height: 300,
-            child: _buildChartCard(context),
-          ),
+          SizedBox(height: 300, child: _buildChartCard(context)),
 
           const SizedBox(height: 24),
 
@@ -391,15 +536,13 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     );
   }
 
-
-
   Widget _buildChartCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -417,20 +560,24 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                         color: Colors.blue[50],
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.show_chart, color: AppColors.primary, size: 20),
+                      child: const Icon(
+                        Icons.show_chart,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    Text('Physiological Trends',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      'Physiological Trends',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(width: 24),
-                  // Legend
-                  Row(
-                    children: [
-                      _legendItem('ECG', Colors.redAccent),
-                    ],
-                  ),
+                // Legend
+                Row(children: [_legendItem('ECG', Colors.redAccent)]),
               ],
             ),
           ),
@@ -452,10 +599,14 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               height: 48,
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.monitor_heart, color: AppColors.primary, size: 28),
+              child: const Icon(
+                Icons.monitor_heart,
+                color: AppColors.primary,
+                size: 28,
+              ),
             ),
             const SizedBox(width: 16),
             Column(
@@ -463,11 +614,18 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               children: [
                 Row(
                   children: [
-                    Text('Patient Monitoring',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      'Patient Monitoring',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blue[50],
                         borderRadius: BorderRadius.circular(20),
@@ -484,8 +642,12 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                     ),
                   ],
                 ),
-                Text('Real-time biofeedback stream & AI analysis',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                Text(
+                  'Real-time biofeedback stream & AI analysis',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                ),
               ],
             ),
           ],
@@ -497,7 +659,9 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               decoration: BoxDecoration(
                 color: isOnline ? Colors.green[50] : Colors.red[50],
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: isOnline ? Colors.green[100]! : Colors.red[100]!),
+                border: Border.all(
+                  color: isOnline ? Colors.green[100]! : Colors.red[100]!,
+                ),
               ),
               child: Row(
                 children: [
@@ -525,11 +689,22 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text('SESSION TIMER',
-                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                 Text(
-                    _formatDuration(_sessionDuration),
-                    style: GoogleFonts.robotoMono(fontSize: 20, fontWeight: FontWeight.w900, color: Theme.of(context).textTheme.bodyLarge?.color)),
+                  'SESSION TIMER',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                Text(
+                  _formatDuration(_sessionDuration),
+                  style: GoogleFonts.robotoMono(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
               ],
             ),
             const SizedBox(width: 24),
@@ -537,11 +712,22 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
             TextButton.icon(
               onPressed: _toggleSession,
               icon: const Icon(Icons.stop_circle_outlined, color: Colors.red),
-              label: const Text('END SESSION', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              label: const Text(
+                'END SESSION',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               style: TextButton.styleFrom(
-                backgroundColor: Colors.red.withOpacity(0.1),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                backgroundColor: Colors.red.withValues(alpha: 0.1),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -553,9 +739,20 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   Widget _legendItem(String label, Color color) {
     return Row(
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey,
+          ),
+        ),
       ],
     );
   }
@@ -566,49 +763,78 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('COMPOSITE STRESS SCORE', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.0)),
+          Text(
+            'COMPOSITE STRESS SCORE',
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+              letterSpacing: 1.0,
+            ),
+          ),
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-               StreamBuilder<BiosensorData?>(
+              StreamBuilder<BiosensorData?>(
                 stream: _service.dataStream,
                 builder: (context, snapshot) {
                   // Stress calculation based on Heart Rate and SpO2
                   // Higher HR (>100) and lower SpO2 (<95) = Higher Stress
                   double score = 0.0;
                   if (snapshot.hasData && snapshot.data != null) {
-                     final data = snapshot.data!;
-                     
-                     // ZERO CHECK: If sensors are 0, stress is 0
-                     if (data.heartRate == 0 && data.spo2 == 0) {
-                       score = 0.0;
-                     } else {
-                       // Normalize HR: 60=0, 140=10 (Ensure non-negative)
-                       double hrScore = ((data.heartRate - 60) / 80) * 10;
-                       if (hrScore < 0) hrScore = 0;
-                       
-                       // Normalize SpO2: 100=0, 90=10 (inverted)
-                       double spo2Score = ((100 - data.spo2) / 10) * 10;
-                       if (spo2Score < 0) spo2Score = 0;
-                       
-                       // Combined score
-                       score = (hrScore + spo2Score) / 2;
-                       score = score.clamp(0.0, 10.0);
-                     }
+                    final data = snapshot.data!;
+
+                    // ZERO CHECK: If sensors are 0, stress is 0
+                    if (data.heartRate == 0 && data.spo2 == 0) {
+                      score = 0.0;
+                    } else {
+                      // Normalize HR: 60=0, 140=10 (Ensure non-negative)
+                      double hrScore = ((data.heartRate - 60) / 80) * 10;
+                      if (hrScore < 0) hrScore = 0;
+
+                      // Normalize SpO2: 100=0, 90=10 (inverted)
+                      double spo2Score = ((100 - data.spo2) / 10) * 10;
+                      if (spo2Score < 0) spo2Score = 0;
+
+                      // Combined score
+                      score = (hrScore + spo2Score) / 2;
+                      score = score.clamp(0.0, 10.0);
+                    }
                   } else {
-                    return Text('--', style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w900, color: Colors.grey[400]));
+                    return Text(
+                      '--',
+                      style: GoogleFonts.inter(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.grey[400],
+                      ),
+                    );
                   }
-                  return Text(score.toStringAsFixed(1), style: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.w900, color: score > 5 ? Colors.orange : Colors.green));
-                }
+                  return Text(
+                    score.toStringAsFixed(1),
+                    style: GoogleFonts.inter(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w900,
+                      color: score > 5 ? Colors.orange : Colors.green,
+                    ),
+                  );
+                },
               ),
-              Text('/ 10', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+              Text(
+                '/ 10',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -618,11 +844,20 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               value: 0.35, // Dynamicize later
               minHeight: 8,
               backgroundColor: Colors.grey[100],
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          Text('Patient state is optimal.', style: GoogleFonts.inter(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey[600])),
+          Text(
+            'Patient state is optimal.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: Colors.grey[600],
+            ),
+          ),
         ],
       ),
     );
@@ -634,9 +869,13 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -649,38 +888,65 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [Colors.blue[400]!, Colors.purple[400]!]),
+                  gradient: LinearGradient(
+                    colors: [Colors.blue[400]!, Colors.purple[400]!],
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('AI Clinical Insights', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+                child: Text(
+                  'AI Clinical Insights',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
               ),
               // Recording Toggle Button
               GestureDetector(
                 onTap: _isSessionActive ? _toggleRecording : null,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: _transcriptionService.isListening ? Colors.red.withOpacity(0.1) : Colors.grey[100],
+                    color: _transcriptionService.isListening
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : Colors.grey[100],
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _transcriptionService.isListening ? Colors.red.withOpacity(0.3) : Colors.grey[300]!),
+                    border: Border.all(
+                      color: _transcriptionService.isListening
+                          ? Colors.red.withValues(alpha: 0.3)
+                          : Colors.grey[300]!,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _transcriptionService.isListening ? Icons.mic : Icons.mic_off,
-                        color: _transcriptionService.isListening ? Colors.red : Colors.grey[600],
+                        _transcriptionService.isListening
+                            ? Icons.mic
+                            : Icons.mic_off,
+                        color: _transcriptionService.isListening
+                            ? Colors.red
+                            : Colors.grey[600],
                         size: 12,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         _transcriptionService.isListening ? 'REC' : 'MIC',
                         style: GoogleFonts.inter(
-                          color: _transcriptionService.isListening ? Colors.red : Colors.grey[600],
+                          color: _transcriptionService.isListening
+                              ? Colors.red
+                              : Colors.grey[600],
                           fontWeight: FontWeight.bold,
                           fontSize: 9,
                         ),
@@ -692,51 +958,76 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Insight Display Area - Flexible height
           Expanded(
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: _isGeneratingInsight
-                ? Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                        const SizedBox(width: 10),
-                        Text('Analyzing...', style: GoogleFonts.inter(color: Colors.grey[600], fontSize: 12)),
-                      ],
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: _isGeneratingInsight
+                  ? Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Analyzing...',
+                            style: GoogleFonts.inter(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      child: Text(
+                        _aiInsight ??
+                            'Click "Generate Insight" to analyze current session data.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: _aiInsight != null
+                              ? Colors.black87
+                              : Colors.grey[500],
+                        ),
+                      ),
                     ),
-                  )
-                : SingleChildScrollView(
-                    child: Text(
-                      _aiInsight ?? 'Click "Generate Insight" to analyze current session data.',
-                      style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: _aiInsight != null ? Colors.black87 : Colors.grey[500]),
-                    ),
-                  ),
             ),
           ),
           const SizedBox(height: 12),
-          
+
           // Generate Button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _isGeneratingInsight ? null : _generateInsight,
               icon: const Icon(Icons.psychology, size: 18),
-              label: Text('Generate Insight', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+              label: Text(
+                'Generate Insight',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryBrand,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: Colors.grey[300],
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ),
@@ -747,9 +1038,9 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
 
   void _generateInsight() async {
     setState(() => _isGeneratingInsight = true);
-    
-    final sensorData = await _service.dataStream.first; 
-    
+
+    final sensorData = await _service.dataStream.first;
+
     if (!mounted) return;
 
     if (sensorData == null) {
@@ -761,7 +1052,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     }
 
     final geminiService = Provider.of<GeminiService>(context, listen: false);
-    
+
     // Combine notes with transcription
     String contextText = _notesController.text;
     if (_transcription.isNotEmpty) {
@@ -795,31 +1086,39 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   /// Auto-generates insights periodically during the session
   void _autoGenerateInsight() async {
     if (!mounted || !_isSessionActive || _sessionTimelineData.isEmpty) return;
-    
+
     setState(() => _isGeneratingInsight = true);
-    
+
     // Get recent data (last 15 entries = 15 seconds of data)
-    final recentData = _sessionTimelineData.length > 15 
-        ? _sessionTimelineData.sublist(_sessionTimelineData.length - 15) 
+    final recentData = _sessionTimelineData.length > 15
+        ? _sessionTimelineData.sublist(_sessionTimelineData.length - 15)
         : _sessionTimelineData;
-    
+
     // Calculate averages for the recent window
     int avgHr = 0;
     int avgSpo2 = 0;
     int stressCount = 0;
-    
+
     if (recentData.isNotEmpty) {
-      avgHr = (recentData.map((e) => e['heartRate'] as int).reduce((a, b) => a + b) / recentData.length).round();
-      avgSpo2 = (recentData.map((e) => e['spo2'] as int).reduce((a, b) => a + b) / recentData.length).round();
+      avgHr =
+          (recentData
+                      .map((e) => e['heartRate'] as int)
+                      .reduce((a, b) => a + b) /
+                  recentData.length)
+              .round();
+      avgSpo2 =
+          (recentData.map((e) => e['spo2'] as int).reduce((a, b) => a + b) /
+                  recentData.length)
+              .round();
       stressCount = recentData.where((e) => e['isStressed'] == true).length;
     }
 
     final geminiService = Provider.of<GeminiService>(context, listen: false);
-    
+
     try {
       final insight = await geminiService.analyzeLiveSession(
-        avgHr, 
-        avgSpo2, 
+        avgHr,
+        avgSpo2,
         stressCount,
         _transcription,
         _formatDuration(_sessionDuration),
@@ -896,7 +1195,13 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Session Complete', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold)),
+                Text(
+                  'Session Complete',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
@@ -904,19 +1209,38 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
               ],
             ),
             const SizedBox(height: 16),
-            Text('Session Duration: ${widget.duration}', style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600])),
+            Text(
+              'Session Duration: ${widget.duration}',
+              style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600]),
+            ),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                 _statItem('Avg Heart Rate', '${widget.avgStats['avgHr']} BPM', Icons.favorite, Colors.red),
-                 _statItem('Avg SpO2', '${widget.avgStats['avgSpo2']}%', Icons.water_drop, Colors.blue),
+                _statItem(
+                  'Avg Heart Rate',
+                  '${widget.avgStats['avgHr']} BPM',
+                  Icons.favorite,
+                  Colors.red,
+                ),
+                _statItem(
+                  'Avg SpO2',
+                  '${widget.avgStats['avgSpo2']}%',
+                  Icons.water_drop,
+                  Colors.blue,
+                ),
               ],
             ),
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
-            Text('Transcript', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Transcript',
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 8),
             // Transcript - Expanded to fill available space
             Expanded(
@@ -924,14 +1248,20 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50], 
+                  color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[200]!)
+                  border: Border.all(color: Colors.grey[200]!),
                 ),
                 child: SingleChildScrollView(
                   child: Text(
-                    widget.transcript.isEmpty ? 'No speech detected.' : widget.transcript,
-                    style: GoogleFonts.inter(color: Colors.grey[700], fontSize: 14, height: 1.5),
+                    widget.transcript.isEmpty
+                        ? 'No speech detected.'
+                        : widget.transcript,
+                    style: GoogleFonts.inter(
+                      color: Colors.grey[700],
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -941,10 +1271,18 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : _generateReport,
-                icon: _isLoading 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                  : const Icon(Icons.description),
-                label: Text(_isLoading ? 'Generating Report...' : 'Generate Detailed Medical Report'),
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.description),
+                label: Text(
+                  _isLoading
+                      ? 'Generating Report...'
+                      : 'Generate Detailed Medical Report',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -963,10 +1301,13 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: SingleChildScrollView(
-                    child: Text(_report!, style: GoogleFonts.inter(fontSize: 14, height: 1.6)),
+                    child: Text(
+                      _report!,
+                      style: GoogleFonts.inter(fontSize: 14, height: 1.6),
+                    ),
                   ),
                 ),
-              )
+              ),
           ],
         ),
       ),
@@ -978,7 +1319,10 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
       children: [
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 8),
-        Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
         Text(label, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
       ],
     );
