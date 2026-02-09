@@ -4,7 +4,13 @@ import '../models/biosensor_data_model.dart';
 import 'blynk_service.dart';
 
 /// Service that generates biosensor data based on Blynk connection status
+/// Singleton pattern to maintain state across screen navigation
 class BiosensorService {
+  // Singleton pattern
+  static final BiosensorService _instance = BiosensorService._internal();
+  factory BiosensorService() => _instance;
+  BiosensorService._internal();
+
   final BlynkService _blynkService = BlynkService();
   final _controller = StreamController<BiosensorData?>.broadcast();
   final _statusController = StreamController<BlynkStatus>.broadcast();
@@ -13,14 +19,14 @@ class BiosensorService {
   final Random _random = Random();
 
   // Base values for realistic oscillation
-  double _hrBase = 75.0;
-  double _spo2Base = 97.0;
-  double _gsrBase = 2.5;
+  double _hrBase = 80.0;
+  double _spo2Base = 98.0;
+  double _gsrBase = 3;
   
   // ECG simulation
   double _ecgPhase = 0.0;
 
-  // Current status
+  // Current status - starts with BlynkService's cached status if available
   BlynkStatus _currentStatus = BlynkStatus.offline;
 
   Stream<BiosensorData?> get dataStream => _controller.stream;

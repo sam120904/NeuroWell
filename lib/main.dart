@@ -10,6 +10,7 @@ import 'ui/dashboard/dashboard_layout.dart';
 import 'firebase_options.dart';
 import 'data/services/auth_service.dart';
 import 'data/services/gemini_service.dart';
+import 'data/services/firestore_service.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -45,6 +46,7 @@ class NeurowellApp extends StatelessWidget {
       providers: [
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<GeminiService>(create: (_) => GeminiService()),
+        Provider<FirestoreService>(create: (_) => FirestoreService()),
       ],
       child: MaterialApp(
         title: AppStrings.appName,

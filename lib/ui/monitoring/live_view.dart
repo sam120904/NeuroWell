@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
 import 'widgets/telemetry_card.dart';
 import 'widgets/telemetry_chart.dart';
@@ -8,7 +9,9 @@ import '../../data/services/biosensor_service.dart';
 import '../../data/services/blynk_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/gemini_service.dart';
+import '../../data/services/firestore_service.dart';
 import '../../data/models/biosensor_data_model.dart';
+import '../../data/models/patient_model.dart';
 import '../../data/services/transcription_service.dart';
 
 class LiveMonitoringView extends StatefulWidget {
@@ -27,6 +30,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   bool _isGeneratingInsight = false;
   bool _isSessionActive = false;
   String _transcription = '';
+  Patient? _selectedPatient; // Currently selected patient for this session
   
   // Timer State
   Timer? _sessionTimer;
@@ -74,8 +78,12 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         _showSessionSummary();
       }
     } else {
-      // Logic when turning ON
+      // Show patient selection dialog FIRST
+      final selectedPatient = await _showPatientSelectionDialog();
+      if (selectedPatient == null) return; // User cancelled
+      
       setState(() {
+        _selectedPatient = selectedPatient;
         _isSessionActive = true;
         _sessionDuration = Duration.zero;
         _transcription = ''; // Clear previous transcript
@@ -99,6 +107,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
             'timestamp': _formatDuration(_sessionDuration),
             'heartRate': data.heartRate,
             'spo2': data.spo2,
+            'gsr': data.gsr,
             'isStressed': data.isStressed,
           });
         }
@@ -114,6 +123,138 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       _service.startSimulation();
       // Transcription is now optional - controlled by toggle button
     }
+  }
+  
+  /// Show patient selection dialog and return selected patient
+  Future<Patient?> _showPatientSelectionDialog() async {
+    final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+    
+    return showDialog<Patient>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: 450,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.person_search, color: AppColors.primary, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Text('Select Patient', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx, null),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Choose which patient will be monitored in this session',
+                style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 20),
+              
+              // Patient List
+              SizedBox(
+                height: 300,
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: firestoreService.getPatientsStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.person_off_outlined, size: 48, color: Colors.grey[400]),
+                            const SizedBox(height: 12),
+                            Text('No patients found', style: TextStyle(color: Colors.grey[600])),
+                            const SizedBox(height: 8),
+                            Text('Add patients from the Patients tab first', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                          ],
+                        ),
+                      );
+                    }
+                    
+                    final patients = snapshot.data!.docs.map((doc) {
+                      return Patient.fromMap(doc.id, doc.data() as Map<String, dynamic>);
+                    }).toList();
+                    
+                    return ListView.separated(
+                      itemCount: patients.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final patient = patients[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            child: Text(
+                              patient.name.isNotEmpty ? patient.name[0].toUpperCase() : '?',
+                              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          title: Text(patient.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          subtitle: Text('${patient.age} yrs • ${patient.condition}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: patient.status == 'Active' ? Colors.green[50] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              patient.status,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: patient.status == 'Active' ? Colors.green[700] : Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          onTap: () => Navigator.pop(ctx, patient),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Cancel button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
   
   /// Toggle transcription recording on/off
@@ -134,10 +275,13 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         transcript: _transcription,
         duration: _formatDuration(_sessionDuration),
         timelineData: List.from(_sessionTimelineData), // Pass copy of data
+        patientId: _selectedPatient?.id ?? 'general',
+        patientName: _selectedPatient?.name ?? 'Unknown Patient',
         // Placeholder stats - in real app, calculate these from session data
         avgStats: {
           'avgHr': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['heartRate'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
           'avgSpo2': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['spo2'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
+          'avgGsr': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['gsr'] as double).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(1),
           'stressEvents': _sessionTimelineData.where((e) => e['isStressed'] == true).length,
         },
       ),
@@ -847,12 +991,16 @@ class _SessionSummaryDialog extends StatefulWidget {
   final String duration;
   final Map<String, dynamic> avgStats;
   final List<Map<String, dynamic>> timelineData;
+  final String patientId;
+  final String patientName;
 
   const _SessionSummaryDialog({
     required this.transcript,
     required this.duration,
     required this.avgStats,
     required this.timelineData,
+    required this.patientId,
+    required this.patientName,
   });
 
   @override
@@ -877,7 +1025,26 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
         _report = report;
         _isLoading = false;
       });
+      // Show report in bigger popup
+      if (report != null && report.isNotEmpty) {
+        _showReportPopup(report);
+      }
     }
+  }
+
+  void _showReportPopup(String report) {
+    showDialog(
+      context: context,
+      builder: (context) => _ReportViewDialog(
+        report: report,
+        duration: widget.duration,
+        avgStats: widget.avgStats,
+        transcript: widget.transcript,
+        timelineData: widget.timelineData,
+        patientId: widget.patientId,
+        patientName: widget.patientName,
+      ),
+    );
   }
 
   @override
@@ -887,7 +1054,7 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
       backgroundColor: Colors.white,
       child: Container(
         width: 600,
-        height: 600, // Fixed height for dialog
+        height: 500,
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -911,17 +1078,17 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
               children: [
                  _statItem('Avg Heart Rate', '${widget.avgStats['avgHr']} BPM', Icons.favorite, Colors.red),
                  _statItem('Avg SpO2', '${widget.avgStats['avgSpo2']}%', Icons.water_drop, Colors.blue),
+                 _statItem('Avg GSR', '${widget.avgStats['avgGsr']} µS', Icons.electric_bolt, Colors.orange),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
             Text('Transcript', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            // Transcript - Expanded to fill available space
             Expanded(
-              flex: 2,
               child: Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.grey[50], 
@@ -942,7 +1109,7 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
               child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : _generateReport,
                 icon: _isLoading 
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
                   : const Icon(Icons.description),
                 label: Text(_isLoading ? 'Generating Report...' : 'Generate Detailed Medical Report'),
                 style: ElevatedButton.styleFrom(
@@ -952,21 +1119,6 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
                 ),
               ),
             ),
-            if (_report != null)
-              Expanded(
-                flex: 3, // Give more space to report
-                child: Container(
-                  margin: const EdgeInsets.only(top: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Text(_report!, style: GoogleFonts.inter(fontSize: 14, height: 1.6)),
-                  ),
-                ),
-              )
           ],
         ),
       ),
@@ -980,6 +1132,230 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
         const SizedBox(height: 8),
         Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold)),
         Text(label, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+      ],
+    );
+  }
+}
+
+/// Large popup dialog to display the generated report
+class _ReportViewDialog extends StatefulWidget {
+  final String report;
+  final String duration;
+  final Map<String, dynamic> avgStats;
+  final String transcript;
+  final List<Map<String, dynamic>> timelineData;
+  final String patientId;
+  final String patientName;
+
+  const _ReportViewDialog({
+    required this.report,
+    required this.duration,
+    required this.avgStats,
+    required this.transcript,
+    required this.timelineData,
+    required this.patientId,
+    required this.patientName,
+  });
+
+  @override
+  State<_ReportViewDialog> createState() => _ReportViewDialogState();
+}
+
+class _ReportViewDialogState extends State<_ReportViewDialog> {
+  bool _isSaving = false;
+
+  void _saveToHistory() async {
+    setState(() => _isSaving = true);
+    
+    try {
+      final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+      
+      // Calculate peak heart rate from timeline data
+      int peakHr = 0;
+      for (var data in widget.timelineData) {
+        final hr = data['heartRate'] as int? ?? 0;
+        if (hr > peakHr) peakHr = hr;
+      }
+      
+      // Parse duration string to get minutes (format: "MM:SS")
+      final parts = widget.duration.split(':');
+      final durationMinutes = int.tryParse(parts[0]) ?? 0;
+      
+      // Save session to Firestore
+      await firestoreService.addSession(
+        widget.patientId, // Use selected patient ID
+        {
+          'patientName': widget.patientName, // Store patient name
+          'startTime': Timestamp.now(),
+          'durationMinutes': durationMinutes,
+          'status': 'Completed',
+          'peakHeartRate': peakHr,
+          'avgHeartRate': widget.avgStats['avgHr'],
+          'avgSpo2': widget.avgStats['avgSpo2'],
+          'transcript': widget.transcript,
+          'aiReport': widget.report,
+          'timelineData': widget.timelineData,
+        },
+      );
+      
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Session saved to history!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Close both dialogs and return to live session
+        Navigator.of(context).pop(); // Close report dialog
+        Navigator.of(context).pop(); // Close session summary dialog
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: Colors.white,
+      child: Container(
+        width: screenSize.width * 0.8,
+        height: screenSize.height * 0.85,
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.description, color: AppColors.primary, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Medical Report', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold)),
+                        Text('Session Duration: ${widget.duration}', style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[600])),
+                      ],
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 28),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Stats Row
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _miniStat('Avg HR', '${widget.avgStats['avgHr']} BPM', Icons.favorite, Colors.red),
+                  _miniStat('Avg SpO2', '${widget.avgStats['avgSpo2']}%', Icons.water_drop, Colors.blue),
+                  _miniStat('Avg GSR', '${widget.avgStats['avgGsr']} µS', Icons.electric_bolt, Colors.orange),
+                  _miniStat('Data Points', '${widget.timelineData.length}', Icons.timeline, Colors.purple),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Report Content - Takes most of the space
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50]?.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    widget.report,
+                    style: GoogleFonts.inter(fontSize: 15, height: 1.7, color: Colors.black87),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                    label: const Text('Close'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _saveToHistory,
+                    icon: _isSaving 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.save),
+                    label: Text(_isSaving ? 'Saving...' : 'Save to History'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _miniStat(String label, String value, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(label, style: GoogleFonts.inter(fontSize: 10, color: Colors.grey)),
+          ],
+        ),
       ],
     );
   }

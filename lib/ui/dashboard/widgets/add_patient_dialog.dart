@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:math';
 import '../../../../data/services/firestore_service.dart';
 import '../../../../core/constants.dart';
 
@@ -35,7 +36,13 @@ class _AddPatientDialogState extends State<AddPatientDialog> {
     if (mounted) setState(() => _isLoading = true);
 
     try {
+      // Generate unique patient ID (format: NW-XXXXXX)
+      final random = Random();
+      final patientCode = random.nextInt(900000) + 100000; // 6-digit number
+      final generatedPatientId = 'NW-$patientCode';
+
       final patientData = {
+        'patientId': generatedPatientId, // Custom readable patient ID
         'name': _nameController.text.trim(),
         'email': '', // Email removed from form
         'age': int.parse(_ageController.text.trim()),

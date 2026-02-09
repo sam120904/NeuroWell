@@ -241,7 +241,7 @@ class _SessionHistoryState extends State<SessionHistory> {
                                       headingRowColor: MaterialStateProperty.all(Colors.grey[50]),
                                       columns: const [
                                         DataColumn(label: Text('Date & Time', style: TextStyle(fontWeight: FontWeight.bold))),
-                                        DataColumn(label: Text('Patient ID', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        DataColumn(label: Text('Patient', style: TextStyle(fontWeight: FontWeight.bold))),
                                         DataColumn(label: Text('Duration', style: TextStyle(fontWeight: FontWeight.bold))),
                                         DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
                                         DataColumn(label: Text('Peak HR', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -260,13 +260,21 @@ class _SessionHistoryState extends State<SessionHistory> {
                                             ),
                                           ),
                                           DataCell(
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey[100],
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Text('#${session.patientId}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(session.patientName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                Container(
+                                                  margin: const EdgeInsets.only(top: 2),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[100],
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text('#${session.patientId}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           DataCell(
@@ -312,7 +320,7 @@ class _SessionHistoryState extends State<SessionHistory> {
                                           ),
                                           DataCell(
                                             TextButton(
-                                              onPressed: () {},
+                                              onPressed: () => _showSessionDetails(context, session),
                                               child: Text(
                                                 session.status == 'Active' ? 'Join Session' : 'View Details',
                                                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -334,6 +342,210 @@ class _SessionHistoryState extends State<SessionHistory> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSessionDetails(BuildContext context, Session session) async {
+    // Fetch full session data from Firestore
+    final doc = await FirebaseFirestore.instance.collection('sessions').doc(session.id).get();
+    final data = doc.data();
+    
+    if (!mounted || data == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => _SessionDetailsDialog(
+        session: session,
+        transcript: data['transcript'] as String? ?? 'No transcript available.',
+        aiReport: data['aiReport'] as String? ?? 'No AI report generated.',
+        // Handle both String and int types from Firestore
+        avgHeartRate: _parseToInt(data['avgHeartRate']),
+        avgSpo2: _parseToInt(data['avgSpo2']),
+      ),
+    );
+  }
+
+  int _parseToInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    if (value is double) return value.toInt();
+    return 0;
+  }
+}
+
+/// Dialog to display saved session details
+class _SessionDetailsDialog extends StatelessWidget {
+  final Session session;
+  final String transcript;
+  final String aiReport;
+  final int avgHeartRate;
+  final int avgSpo2;
+
+  const _SessionDetailsDialog({
+    required this.session,
+    required this.transcript,
+    required this.aiReport,
+    required this.avgHeartRate,
+    required this.avgSpo2,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: Colors.white,
+      child: Container(
+        width: screenSize.width * 0.8,
+        height: screenSize.height * 0.85,
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.history, color: AppColors.primary, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Session Report', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                        Text(
+                          '${DateFormat('MMM dd, yyyy').format(session.startTime)} at ${DateFormat('hh:mm a').format(session.startTime)}',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 28),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Stats Row
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _miniStat('Duration', '${session.duration.inMinutes} mins', Icons.timer, Colors.purple),
+                  _miniStat('Avg HR', '$avgHeartRate BPM', Icons.favorite, Colors.red),
+                  _miniStat('Peak HR', '${session.peakHeartRate} BPM', Icons.trending_up, Colors.orange),
+                  _miniStat('Avg SpO2', '$avgSpo2%', Icons.water_drop, Colors.blue),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Tabs: Transcript | AI Report
+            Expanded(
+              child: DefaultTabController(
+                length: 2,
+                child: Column(
+                  children: [
+                    const TabBar(
+                      labelColor: AppColors.primary,
+                      unselectedLabelColor: Colors.grey,
+                      tabs: [
+                        Tab(text: 'AI Report'),
+                        Tab(text: 'Transcript'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          // AI Report Tab
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50]?.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                            ),
+                            child: SingleChildScrollView(
+                              child: SelectableText(
+                                aiReport,
+                                style: const TextStyle(fontSize: 14, height: 1.7, color: Colors.black87),
+                              ),
+                            ),
+                          ),
+                          // Transcript Tab
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[200]!),
+                            ),
+                            child: SingleChildScrollView(
+                              child: SelectableText(
+                                transcript,
+                                style: TextStyle(fontSize: 14, height: 1.7, color: Colors.grey[700]),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Close Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text('Close'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _miniStat(String label, String value, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          ],
+        ),
+      ],
     );
   }
 }
