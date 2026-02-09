@@ -30,12 +30,8 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
   bool _isGeneratingInsight = false;
   bool _isSessionActive = false;
   String _transcription = '';
-<<<<<<< HEAD
   Patient? _selectedPatient; // Currently selected patient for this session
-  
-=======
 
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
   // Timer State
   Timer? _sessionTimer;
   Timer? _insightTimer; // Auto-generate insights periodically
@@ -129,7 +125,6 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
       // Transcription is now optional - controlled by toggle button
     }
   }
-<<<<<<< HEAD
   
   /// Show patient selection dialog and return selected patient
   Future<Patient?> _showPatientSelectionDialog() async {
@@ -155,7 +150,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.person_search, color: AppColors.primary, size: 24),
@@ -213,7 +208,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
                         final patient = patients[index];
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                             child: Text(
                               patient.name.isNotEmpty ? patient.name[0].toUpperCase() : '?',
                               style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
@@ -263,9 +258,7 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
     );
   }
   
-=======
 
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
   /// Toggle transcription recording on/off
   void _toggleRecording() async {
     if (_transcriptionService.isListening) {
@@ -288,30 +281,10 @@ class _LiveMonitoringViewState extends State<LiveMonitoringView> {
         patientName: _selectedPatient?.name ?? 'Unknown Patient',
         // Placeholder stats - in real app, calculate these from session data
         avgStats: {
-<<<<<<< HEAD
           'avgHr': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['heartRate'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
           'avgSpo2': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['spo2'] as int).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(0),
           'avgGsr': _sessionTimelineData.isEmpty ? 0 : (_sessionTimelineData.map((e) => e['gsr'] as double).reduce((a, b) => a + b) / _sessionTimelineData.length).toStringAsFixed(1),
           'stressEvents': _sessionTimelineData.where((e) => e['isStressed'] == true).length,
-=======
-          'avgHr': _sessionTimelineData.isEmpty
-              ? 0
-              : (_sessionTimelineData
-                            .map((e) => e['heartRate'] as int)
-                            .reduce((a, b) => a + b) /
-                        _sessionTimelineData.length)
-                    .toStringAsFixed(0),
-          'avgSpo2': _sessionTimelineData.isEmpty
-              ? 0
-              : (_sessionTimelineData
-                            .map((e) => e['spo2'] as int)
-                            .reduce((a, b) => a + b) /
-                        _sessionTimelineData.length)
-                    .toStringAsFixed(0),
-          'stressEvents': _sessionTimelineData
-              .where((e) => e['isStressed'] == true)
-              .length,
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
         },
       ),
     );
@@ -1398,24 +1371,9 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-<<<<<<< HEAD
                  _statItem('Avg Heart Rate', '${widget.avgStats['avgHr']} BPM', Icons.favorite, Colors.red),
                  _statItem('Avg SpO2', '${widget.avgStats['avgSpo2']}%', Icons.water_drop, Colors.blue),
                  _statItem('Avg GSR', '${widget.avgStats['avgGsr']} µS', Icons.electric_bolt, Colors.orange),
-=======
-                _statItem(
-                  'Avg Heart Rate',
-                  '${widget.avgStats['avgHr']} BPM',
-                  Icons.favorite,
-                  Colors.red,
-                ),
-                _statItem(
-                  'Avg SpO2',
-                  '${widget.avgStats['avgSpo2']}%',
-                  Icons.water_drop,
-                  Colors.blue,
-                ),
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
               ],
             ),
             const SizedBox(height: 24),
@@ -1457,25 +1415,10 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : _generateReport,
-<<<<<<< HEAD
                 icon: _isLoading 
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
                   : const Icon(Icons.description),
                 label: Text(_isLoading ? 'Generating Report...' : 'Generate Detailed Medical Report'),
-=======
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.description),
-                label: Text(
-                  _isLoading
-                      ? 'Generating Report...'
-                      : 'Generate Detailed Medical Report',
-                ),
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -1483,8 +1426,6 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
                 ),
               ),
             ),
-<<<<<<< HEAD
-=======
             if (_report != null)
               Expanded(
                 flex: 3, // Give more space to report
@@ -1503,7 +1444,6 @@ class _SessionSummaryDialogState extends State<_SessionSummaryDialog> {
                   ),
                 ),
               ),
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
           ],
         ),
       ),

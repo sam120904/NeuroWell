@@ -322,7 +322,6 @@ class _SessionHistoryState extends State<SessionHistory> {
                                         Colors.grey[50],
                                       ),
                                       columns: const [
-<<<<<<< HEAD
                                         DataColumn(label: Text('Date & Time', style: TextStyle(fontWeight: FontWeight.bold))),
                                         DataColumn(label: Text('Patient', style: TextStyle(fontWeight: FontWeight.bold))),
                                         DataColumn(label: Text('Duration', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -379,90 +378,28 @@ class _SessionHistoryState extends State<SessionHistory> {
                                               ),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
-=======
-                                        DataColumn(
-                                          label: Text(
-                                            'Date & Time',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Patient ID',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Duration',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Status',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Peak HR',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        DataColumn(
-                                          label: Text(
-                                            'Action',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          numeric: true,
-                                        ),
-                                      ],
-                                      rows: sessions.map((session) {
-                                        return DataRow(
-                                          cells: [
-                                            DataCell(
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
                                                 children: [
-                                                  Text(
-                                                    DateFormat(
-                                                      'MMM dd, yyyy',
-                                                    ).format(session.startTime),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                  if (session.status == 'Active')
+                                                    Container(
+                                                      width: 6,
+                                                      height: 6,
+                                                      decoration: const BoxDecoration(
+                                                        color: AppColors.primary,
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      margin: const EdgeInsets.only(right: 6),
                                                     ),
-                                                  ),
                                                   Text(
-                                                    DateFormat(
-                                                      'hh:mm a',
-                                                    ).format(session.startTime),
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color: Colors.grey,
+                                                    session.status,
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: session.status == 'Active' ? AppColors.primary : Colors.green,
                                                     ),
                                                   ),
                                                 ],
                                               ),
                                             ),
-<<<<<<< HEAD
                                           ),
                                           DataCell(
                                             Row(children: [
@@ -477,138 +414,10 @@ class _SessionHistoryState extends State<SessionHistory> {
                                               child: Text(
                                                 session.status == 'Active' ? 'Join Session' : 'View Details',
                                                 style: const TextStyle(fontWeight: FontWeight.bold),
-=======
-                                            DataCell(
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey[100],
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: Text(
-                                                  '#${session.patientId}',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
                                               ),
                                             ),
-                                            DataCell(
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.schedule,
-                                                    size: 14,
-                                                    color: Colors.grey,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '${session.duration.inMinutes} mins',
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      session.status == 'Active'
-                                                      ? Colors.blue[50]
-                                                      : Colors.green[50],
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color:
-                                                        session.status ==
-                                                            'Active'
-                                                        ? Colors.blue[100]!
-                                                        : Colors.green[100]!,
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    if (session.status ==
-                                                        'Active')
-                                                      Container(
-                                                        width: 6,
-                                                        height: 6,
-                                                        decoration:
-                                                            const BoxDecoration(
-                                                              color: AppColors
-                                                                  .primary,
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                            ),
-                                                        margin:
-                                                            const EdgeInsets.only(
-                                                              right: 6,
-                                                            ),
-                                                      ),
-                                                    Text(
-                                                      session.status,
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color:
-                                                            session.status ==
-                                                                'Active'
-                                                            ? AppColors.primary
-                                                            : Colors.green,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.favorite,
-                                                    size: 14,
-                                                    color: Colors.red,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    '${session.peakHeartRate} BPM',
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            DataCell(
-                                              TextButton(
-                                                onPressed: () {},
-                                                child: Text(
-                                                  session.status == 'Active'
-                                                      ? 'Join Session'
-                                                      : 'View Details',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        );
+                                          ),
+                                        ]);
                                       }).toList(),
                                     ),
                             ),

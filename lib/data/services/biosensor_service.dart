@@ -20,17 +20,10 @@ class BiosensorService {
   final Random _random = Random();
 
   // Base values for realistic oscillation
-<<<<<<< HEAD
-  double _hrBase = 80.0;
-  double _spo2Base = 98.0;
-  double _gsrBase = 3;
-  
-=======
   double _hrBase = 75.0;
   double _spo2Base = 97.0;
   double _gsrBase = 2.5;
 
->>>>>>> 4c923598cbcf60d7f4e3c82d1179b9a418f99261
   // ECG simulation
   double _ecgPhase = 0.0;
 
