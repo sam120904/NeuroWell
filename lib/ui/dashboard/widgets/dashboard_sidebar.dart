@@ -20,7 +20,7 @@ class DashboardSidebar extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         border: Border(
-          right: BorderSide(color: Colors.grey.withOpacity(0.2)),
+          right: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
         ),
       ),
       child: Column(
@@ -36,7 +36,11 @@ class DashboardSidebar extends StatelessWidget {
                     color: AppColors.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.psychology, color: Colors.white, size: 24),
+                  child: const Icon(
+                    Icons.psychology,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Column(
@@ -64,7 +68,7 @@ class DashboardSidebar extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Navigation Items
           Expanded(
             child: Padding(
@@ -95,16 +99,21 @@ class DashboardSidebar extends StatelessWidget {
                   final user = snapshot.data;
                   final displayName = user?.displayName ?? 'Clinician';
                   final email = user?.email ?? 'No Email';
-                  final initial = email.isNotEmpty ? email[0].toUpperCase() : 'C';
+                  final initial = email.isNotEmpty
+                      ? email[0].toUpperCase()
+                      : 'C';
 
                   return Column(
                     children: [
                       Row(
                         children: [
-                           CircleAvatar(
+                          CircleAvatar(
                             radius: 16,
                             backgroundColor: AppColors.primary,
-                            child: Text(initial, style: const TextStyle(color: Colors.white)),
+                            child: Text(
+                              initial,
+                              style: const TextStyle(color: Colors.white),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -112,13 +121,22 @@ class DashboardSidebar extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  displayName == 'Clinician' && email != 'No Email' ? email.split('@')[0] : displayName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                  displayName == 'Clinician' &&
+                                          email != 'No Email'
+                                      ? email.split('@')[0]
+                                      : displayName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
                                   'Online',
-                                  style: TextStyle(color: Colors.green[600], fontSize: 10),
+                                  style: TextStyle(
+                                    color: Colors.green[600],
+                                    fontSize: 10,
+                                  ),
                                 ),
                               ],
                             ),
@@ -127,17 +145,23 @@ class DashboardSidebar extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
+                        onPressed: () =>
+                            Navigator.pushReplacementNamed(context, '/login'),
                         icon: const Icon(Icons.logout, size: 16),
-                        label: const Text('Sign Out', style: TextStyle(fontSize: 12)),
+                        label: const Text(
+                          'Sign Out',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(double.infinity, 36),
-                          side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                          side: BorderSide(
+                            color: Colors.grey.withValues(alpha: 0.3),
+                          ),
                         ),
                       ),
                     ],
                   );
-                }
+                },
               ),
             ),
           ),
@@ -146,7 +170,12 @@ class DashboardSidebar extends StatelessWidget {
     );
   }
 
-  Widget _navItem(BuildContext context, String title, IconData icon, String route) {
+  Widget _navItem(
+    BuildContext context,
+    String title,
+    IconData icon,
+    String route,
+  ) {
     final isActive = activeRoute == route;
     return InkWell(
       onTap: () => onNavigate(route),
@@ -155,7 +184,9 @@ class DashboardSidebar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: isActive ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+          color: isActive
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(

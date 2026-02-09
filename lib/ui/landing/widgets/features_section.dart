@@ -9,7 +9,7 @@ class FeaturesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     // 3 Cards Layout
     final isDesktop = MediaQuery.of(context).size.width > 900;
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       color: Colors.white,
@@ -39,26 +39,35 @@ class FeaturesSection extends StatelessWidget {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _featureCard(
-                      icon: Icons.graphic_eq,
-                      color: Colors.redAccent,
-                      title: 'Real-time Monitoring',
-                      desc: 'Monitor patient vitals with millisecond precision. Capture granular physiological changes during therapy sessions.',
-                    )),
+                    Expanded(
+                      child: _featureCard(
+                        icon: Icons.graphic_eq,
+                        color: Colors.redAccent,
+                        title: 'Real-time Monitoring',
+                        desc:
+                            'Monitor patient vitals with millisecond precision. Capture granular physiological changes during therapy sessions.',
+                      ),
+                    ),
                     const SizedBox(width: 32),
-                    Expanded(child: _featureCard(
-                      icon: Icons.psychology,
-                      color: Colors.blue,
-                      title: 'AI Analysis',
-                      desc: 'Automated insights powered by clinical-grade algorithms. Detect patterns in autonomic nervous system responses instantly.',
-                    )),
+                    Expanded(
+                      child: _featureCard(
+                        icon: Icons.psychology,
+                        color: Colors.blue,
+                        title: 'AI Analysis',
+                        desc:
+                            'Automated insights powered by clinical-grade algorithms. Detect patterns in autonomic nervous system responses instantly.',
+                      ),
+                    ),
                     const SizedBox(width: 32),
-                    Expanded(child: _featureCard(
-                      icon: Icons.security,
-                      color: Colors.amber,
-                      title: 'Secure Reporting',
-                      desc: 'HIPAA compliant data storage and instant report generation. Share progress with patients and medical boards securely.',
-                    )),
+                    Expanded(
+                      child: _featureCard(
+                        icon: Icons.security,
+                        color: Colors.amber,
+                        title: 'Secure Reporting',
+                        desc:
+                            'HIPAA compliant data storage and instant report generation. Share progress with patients and medical boards securely.',
+                      ),
+                    ),
                   ],
                 )
               : Column(
@@ -67,39 +76,47 @@ class FeaturesSection extends StatelessWidget {
                       icon: Icons.graphic_eq,
                       color: Colors.redAccent,
                       title: 'Real-time Monitoring',
-                      desc: 'Monitor patient vitals with millisecond precision.',
+                      desc:
+                          'Monitor patient vitals with millisecond precision.',
                     ),
                     const SizedBox(height: 32),
                     _featureCard(
                       icon: Icons.psychology,
                       color: Colors.blue,
                       title: 'AI Analysis',
-                      desc: 'Automated insights powered by clinical-grade algorithms.',
+                      desc:
+                          'Automated insights powered by clinical-grade algorithms.',
                     ),
                     const SizedBox(height: 32),
                     _featureCard(
                       icon: Icons.security,
                       color: Colors.amber,
                       title: 'Secure Reporting',
-                      desc: 'HIPAA compliant data storage and instant report generation.',
+                      desc:
+                          'HIPAA compliant data storage and instant report generation.',
                     ),
                   ],
-              ),
+                ),
         ],
       ),
     );
   }
 
-  Widget _featureCard({required IconData icon, required Color color, required String title, required String desc}) {
+  Widget _featureCard({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String desc,
+  }) {
     return Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -111,7 +128,7 @@ class FeaturesSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1), // Light background for icon
+              color: color.withValues(alpha: 0.1), // Light background for icon
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 28),

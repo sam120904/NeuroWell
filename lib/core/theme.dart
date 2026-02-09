@@ -8,12 +8,13 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.backgroundAlt, // Light blue-grey background
+      scaffoldBackgroundColor:
+          AppColors.backgroundAlt, // Light blue-grey background
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         primary: AppColors.primary,
         secondary: AppColors.accent,
-        background: AppColors.backgroundAlt,
+        // Note: 'background' is deprecated, using scaffoldBackgroundColor instead
         surface: Colors.white,
         brightness: Brightness.light,
       ),
@@ -61,12 +62,11 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         brightness: Brightness.dark,
-        background: AppColors.backgroundDark,
+        // Note: 'background' is deprecated, handled via scaffoldBackgroundColor
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).apply(
-        bodyColor: AppColors.textDark,
-        displayColor: AppColors.textDark,
-      ),
+      textTheme: GoogleFonts.interTextTheme(
+        ThemeData.dark().textTheme,
+      ).apply(bodyColor: AppColors.textDark, displayColor: AppColors.textDark),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.backgroundDark,
         elevation: 0,

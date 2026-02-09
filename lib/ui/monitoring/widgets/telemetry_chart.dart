@@ -1,6 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import '../../../core/constants.dart';
 
 import 'dart:async';
 import '../../../data/models/biosensor_data_model.dart';
@@ -31,7 +30,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
 
   void _updateData(List<double> newPoints) {
     if (!mounted) return;
-    
+
     // Add new points
     for (var point in newPoints) {
       _scanLine.add(FlSpot(_xValue, point));
@@ -42,7 +41,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
     if (_scanLine.length > 300) {
       _scanLine.removeRange(0, _scanLine.length - 300);
     }
-    
+
     setState(() {});
   }
 
@@ -61,13 +60,13 @@ class _TelemetryChartState extends State<TelemetryChart> {
           drawVerticalLine: true,
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               strokeWidth: 1,
             );
           },
           getDrawingVerticalLine: (value) {
             return FlLine(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               strokeWidth: 1,
             );
           },
@@ -76,12 +75,14 @@ class _TelemetryChartState extends State<TelemetryChart> {
           show: true,
           rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), // Hide time for waveform
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ), // Hide time for waveform
           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(
           show: true,
-          border: Border.all(color: Colors.grey.withOpacity(0.1)),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         ),
         // Dynamic X window based on data
         minX: _scanLine.isNotEmpty ? _scanLine.first.x : 0,
@@ -99,7 +100,7 @@ class _TelemetryChartState extends State<TelemetryChart> {
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.redAccent.withOpacity(0.05),
+              color: Colors.redAccent.withValues(alpha: 0.05),
             ),
           ),
         ],
